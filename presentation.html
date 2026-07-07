@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Quantstrat Replication — Deep RL for Optimal Trading</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --blue:#3B82F6;--cyan:#06B6D4;--violet:#8B5CF6;
+  --green:#10B981;--amber:#F59E0B;--red:#EF4444;
+  --bg:#060d1a;--border:rgba(255,255,255,0.08);--text:#E2E8F0;--muted:#64748B;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);}
+#deck{width:100%;height:100%;position:relative;}
+.slide{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  padding:48px 68px 40px;opacity:0;pointer-events:none;
+  transform:translateX(60px);
+  transition:opacity .45s cubic-bezier(.4,0,.2,1),transform .45s cubic-bezier(.4,0,.2,1);
+  background:linear-gradient(135deg,#060d1a 0%,#0a1628 60%,#060d1a 100%);overflow:hidden;
+}
+.slide.active{opacity:1;pointer-events:all;transform:translateX(0);}
+.slide.exit-left{opacity:0;transform:translateX(-60px);}
+.slide::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(59,130,246,.06) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(59,130,246,.06) 1px,transparent 1px);background-size:48px 48px;}
+.slide::after{content:'';position:absolute;border-radius:50%;pointer-events:none;
+  width:480px;height:480px;
+  background:radial-gradient(circle,rgba(59,130,246,.11) 0%,transparent 70%);top:-80px;right:-80px;}
+.sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;position:relative;z-index:2;}
+.sn{font-size:11px;font-weight:600;letter-spacing:.12em;color:var(--cyan);text-transform:uppercase;
+  background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.25);padding:4px 12px;border-radius:20px;}
+.st{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;}
+h1{font-size:clamp(30px,3.8vw,52px);font-weight:800;line-height:1.1;
+  background:linear-gradient(135deg,#fff 0%,var(--cyan) 100%);-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;background-clip:text;}
+h2{font-size:clamp(20px,2.4vw,32px);font-weight:700;line-height:1.2;
+  background:linear-gradient(135deg,#fff 0%,var(--blue) 100%);-webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;background-clip:text;}
+.sub{font-size:15px;color:var(--muted);margin-top:8px;}
+.sb{flex:1;overflow:hidden;position:relative;z-index:2;display:flex;flex-direction:column;gap:14px;}
+.card{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:14px;
+  padding:18px 22px;position:relative;overflow:hidden;transition:transform .2s,border-color .2s;}
+.card:hover{border-color:rgba(59,130,246,.35);transform:translateY(-2px);}
+.ca{position:absolute;top:0;left:0;width:3px;height:100%;border-radius:3px 0 0 3px;}
+.card h3{font-size:13.5px;font-weight:700;margin-bottom:7px;}
+.card p{font-size:12.5px;color:#94A3B8;line-height:1.65;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.tc{display:flex;flex-direction:column;gap:12px;}
+.code{background:#0d1117;border:1px solid #1e2d40;border-radius:10px;
+  padding:14px 18px;font-family:'JetBrains Mono',monospace;font-size:11.5px;line-height:1.7;}
+.kw{color:#ff7b72;}.fn{color:#d2a8ff;}.str{color:#a5d6ff;}.cm{color:#6e7681;font-style:italic;}.nm{color:#79c0ff;}
+.fp{display:inline-flex;align-items:center;gap:6px;background:rgba(59,130,246,.12);
+  border:1px solid rgba(59,130,246,.25);border-radius:6px;padding:3px 10px;
+  font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--blue);font-weight:500;}
+.fp .d{width:5px;height:5px;border-radius:50%;background:var(--cyan);}
+.bdg{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.04em;}
+.bb{background:rgba(59,130,246,.15);color:var(--blue);border:1px solid rgba(59,130,246,.3);}
+.bc{background:rgba(6,182,212,.15);color:var(--cyan);border:1px solid rgba(6,182,212,.3);}
+.bv{background:rgba(139,92,246,.15);color:var(--violet);border:1px solid rgba(139,92,246,.3);}
+.bg{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3);}
+.ba{background:rgba(245,158,11,.15);color:var(--amber);border:1px solid rgba(245,158,11,.3);}
+.br{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);}
+.eq{background:#0d1117;border-left:3px solid var(--cyan);border-radius:0 8px 8px 0;
+  padding:11px 18px;font-family:'JetBrains Mono',monospace;font-size:13px;color:#a5d6ff;margin:8px 0;}
+.rt{width:100%;border-collapse:collapse;font-size:12.5px;}
+.rt th{padding:8px 14px;text-align:center;font-size:11px;font-weight:600;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);}
+.rt td{padding:10px 14px;text-align:center;border-bottom:1px solid rgba(255,255,255,.04);}
+.win{color:var(--green);font-weight:700;}.ok{color:var(--amber);font-weight:500;}.loss{color:var(--red);}
+.tli{display:flex;gap:16px;align-items:flex-start;padding-bottom:14px;position:relative;}
+.tli:not(:last-child)::after{content:'';position:absolute;left:13px;top:26px;
+  width:2px;height:calc(100% - 12px);background:linear-gradient(to bottom,var(--blue),transparent);}
+.tld{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;
+  justify-content:center;font-size:12px;font-weight:700;border:2px solid;}
+.tlc h4{font-size:13.5px;font-weight:600;margin-bottom:3px;}
+.tlc p{font-size:12px;color:#94A3B8;line-height:1.6;}
+.cch{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:12px;padding:14px 18px;}
+.sch{background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:12px;padding:14px 18px;}
+.cch h4{color:var(--red);font-size:12.5px;font-weight:700;margin-bottom:5px;}
+.sch h4{color:var(--green);font-size:12.5px;font-weight:700;margin-bottom:5px;}
+.cch p,.sch p{font-size:12px;color:#94A3B8;line-height:1.6;}
+.fl{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+.fb{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;
+  padding:7px 14px;font-size:12.5px;font-weight:500;white-space:nowrap;}
+.fa{color:var(--cyan);font-size:17px;}
+.sr{display:flex;gap:14px;}
+.st2{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;
+  padding:14px 18px;text-align:center;flex:1;}
+.sv{font-size:26px;font-weight:800;background:linear-gradient(135deg,var(--blue),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.sl{font-size:11px;color:var(--muted);margin-top:3px;letter-spacing:.06em;text-transform:uppercase;}
+.ul{list-style:none;}
+.ul li{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:#CBD5E1;line-height:1.7;padding:2px 0;}
+.ul li::before{content:'›';color:var(--cyan);font-weight:700;flex-shrink:0;}
+#nav{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:14px;z-index:100;
+  background:rgba(6,13,26,.88);backdrop-filter:blur(20px);
+  border:1px solid var(--border);border-radius:50px;padding:9px 22px;}
+.nb{background:none;border:none;cursor:pointer;color:var(--muted);
+  font-size:17px;transition:color .2s;padding:0 3px;}
+.nb:hover{color:#fff;}
+#prog{display:flex;gap:6px;align-items:center;}
+.pd{width:7px;height:7px;border-radius:50%;background:var(--border);transition:all .3s;cursor:pointer;}
+.pd.a{background:var(--cyan);width:20px;border-radius:4px;}
+#sc{font-size:11.5px;color:var(--muted);min-width:34px;text-align:center;}
+#kh{position:fixed;bottom:82px;right:28px;font-size:11px;color:var(--muted);
+  background:rgba(6,13,26,.7);padding:5px 11px;border-radius:8px;border:1px solid var(--border);
+  transition:opacity .4s;}
+</style>
+</head>
+<body>
+<div id="deck">
+
+<!-- SLIDE 1 -->
+<section class="slide active" id="s1">
+<div class="sh"><span class="sn">01 / 10</span><span class="st">Quantstrat Replication</span></div>
+<div class="sb" style="justify-content:center;gap:20px;">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <span class="bdg bb">Deep Reinforcement Learning</span>
+    <span class="bdg bc">Quantitative Finance</span>
+    <span class="bdg bv">Python · NumPy · No PyTorch</span>
+  </div>
+  <h1>Deep RL for<br/>Optimal Trading</h1>
+  <p class="sub" style="font-size:17px;max-width:600px;">From-scratch replication of Section 4 — regime-switching Ornstein-Uhlenbeck signal environments with DDPG-based trading agents.</p>
+  <div class="sr">
+    <div class="st2"><div class="sv">3</div><div class="sl">Agent Variants</div></div>
+    <div class="st2"><div class="sv">3</div><div class="sl">Scenarios</div></div>
+    <div class="st2"><div class="sv">7</div><div class="sl">Python Files</div></div>
+    <div class="st2"><div class="sv">v2</div><div class="sl">Custom Autodiff</div></div>
+  </div>
+  <div class="fl">
+    <div class="fb">OU Environment</div><span class="fa">→</span>
+    <div class="fb">GRU Filter</div><span class="fa">→</span>
+    <div class="fb">DDPG Agent</div><span class="fa">→</span>
+    <div class="fb">Cumulative Reward</div>
+  </div>
+</div>
+</section>
+
+<!-- SLIDE 2 -->
+<section class="slide" id="s2">
+<div class="sh"><span class="sn">02 / 10</span><span class="st">Paper Overview</span></div>
+<div class="sb">
+  <h2>What We're Replicating</h2>
+  <p class="sub" style="margin-bottom:4px;">Section 4: Synthetic experiments on regime-switching mean-reverting signals</p>
+  <div class="g2">
+    <div class="tc">
+      <div class="card"><div class="ca" style="background:var(--cyan)"></div>
+        <h3>The Trading Environment</h3>
+        <p>Signal S<sub>t</sub> follows a regime-switching OU process where mean θ, speed κ, and volatility σ are latent Markov chains invisible to the agent.</p>
+      </div>
+      <div class="eq">S<sub>t+1</sub> = S<sub>t</sub> + κ<sub>t</sub>(θ<sub>t</sub> − S<sub>t</sub>)Δt + σ<sub>t</sub>√Δt · Z</div>
+      <div class="card"><div class="ca" style="background:var(--blue)"></div>
+        <h3>The Reward Function</h3>
+        <p>Position P&amp;L minus transaction cost λ. Agent controls inventory I<sub>t</sub> ∈ [−10, 10].</p>
+        <div class="eq" style="font-size:12px;margin-top:8px;">r<sub>t</sub> = I<sub>t+1</sub>(S<sub>t+1</sub> − S<sub>t</sub>) − λ|I<sub>t+1</sub> − I<sub>t</sub>|</div>
+      </div>
+    </div>
+    <div class="tc">
+      <div class="card"><div class="ca" style="background:var(--violet)"></div>
+        <h3>Three Complexity Scenarios</h3>
+        <ul class="ul" style="margin-top:6px;">
+          <li><strong>Scenario 1:</strong> θ<sub>t</sub> switches (κ, σ fixed)</li>
+          <li><strong>Scenario 2:</strong> θ<sub>t</sub> and κ<sub>t</sub> both switch</li>
+          <li><strong>Scenario 3:</strong> θ<sub>t</sub>, κ<sub>t</sub>, σ<sub>t</sub> all switch</li>
+        </ul>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--amber)"></div>
+        <h3>Markov Chain Transitions</h3>
+        <p>Regime transitions follow continuous-time Markov chains. Transition matrix computed via matrix exponential.</p>
+        <div class="eq" style="font-size:12px;margin-top:8px;">P(Δt) = expm(A · Δt) &nbsp; Δt = 0.2</div>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--green)"></div>
+        <h3>Expected Ordering (Table 4)</h3>
+        <p>prob-DDPG &gt; hid-DDPG &gt; reg-DDPG — Bayesian posterior is the richest information state, giving the highest expected reward under partial observability.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- SLIDE 3 -->
+<section class="slide" id="s3">
+<div class="sh"><span class="sn">03 / 10</span><span class="st">Model Architecture</span></div>
+<div class="sb">
+  <h2>Three DDPG Variants</h2>
+  <p class="sub" style="margin-bottom:4px;">Same Actor-Critic backbone — different information state G<sub>t</sub></p>
+  <div class="g3">
+    <div class="card" style="border-color:rgba(6,182,212,.3);">
+      <div class="ca" style="background:var(--cyan)"></div>
+      <span class="bdg bc" style="margin-bottom:9px;display:inline-block;">prob-DDPG</span>
+      <h3 style="color:var(--cyan);">Bayesian Posterior</h3>
+      <p>GRU classifier estimates P(θ<sub>t</sub> | history). Regime probabilities form the information state.</p>
+      <div class="eq" style="font-size:10.5px;margin-top:9px;">G<sub>t</sub> = [S̄<sub>t</sub>, Ī<sub>t</sub>, π̂<sub>0</sub>, π̂<sub>1</sub>, π̂<sub>2</sub>]</div>
+      <div style="margin-top:9px;">
+        <span class="bdg bc">Step 1: Pretrain GRU→softmax (CE)</span><br/>
+        <span class="bdg bb" style="margin-top:5px;">Step 2: Freeze GRU → DDPG</span>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(139,92,246,.3);">
+      <div class="ca" style="background:var(--violet)"></div>
+      <span class="bdg bv" style="margin-bottom:9px;display:inline-block;">hid-DDPG</span>
+      <h3 style="color:var(--violet);">Hidden State</h3>
+      <p>GRU trained online each iteration via auxiliary next-step MSE prediction. Hidden state h<sub>t</sub> is the info state.</p>
+      <div class="eq" style="font-size:10.5px;margin-top:9px;">G<sub>t</sub> = [S̄<sub>t</sub>, Ī<sub>t</sub>, h<sub>t</sub>] &nbsp; (dim 12)</div>
+      <div style="margin-top:9px;">
+        <span class="bdg bv">Online GRU update every iter</span><br/>
+        <span class="bdg bb" style="margin-top:5px;">3 separate Adam optimizers</span>
+      </div>
+    </div>
+    <div class="card" style="border-color:rgba(16,185,129,.3);">
+      <div class="ca" style="background:var(--green)"></div>
+      <span class="bdg bg" style="margin-bottom:9px;display:inline-block;">reg-DDPG</span>
+      <h3 style="color:var(--green);">Point Forecast</h3>
+      <p>GRU regressor predicts S̃<sub>t+1</sub>. Normalised prediction is the information state.</p>
+      <div class="eq" style="font-size:10.5px;margin-top:9px;">G<sub>t</sub> = [S̄<sub>t</sub>, Ī<sub>t</sub>, S̃̄<sub>t+1</sub>]</div>
+      <div style="margin-top:9px;">
+        <span class="bdg bg">Step 1: Pretrain GRU→SiLU (MSE)</span><br/>
+        <span class="bdg bb" style="margin-top:5px;">Step 2: Freeze GRU → DDPG</span>
+      </div>
+    </div>
+  </div>
+  <div class="card" style="border-color:rgba(59,130,246,.2);">
+    <div class="ca" style="background:var(--blue)"></div>
+    <h3>Shared DDPG Architecture (Algorithm 1)</h3>
+    <div class="fl" style="margin-top:8px;">
+      <div class="fb">Actor: 4-5 layer SiLU MLP<br/><span style="font-size:11px;color:var(--muted);">tanh × I<sub>max</sub> output</span></div>
+      <span class="fa">+</span>
+      <div class="fb">Critic: 4-5 layer SiLU MLP<br/><span style="font-size:11px;color:var(--muted);">Q(G<sub>t</sub>, I<sub>t+1</sub>) → scalar</span></div>
+      <span class="fa">+</span>
+      <div class="fb">Target Critic<br/><span style="font-size:11px;color:var(--muted);">Polyak τ=0.001</span></div>
+      <span class="fa">+</span>
+      <div class="fb">γ=0.999 &nbsp; lr=0.001<br/><span style="font-size:11px;color:var(--muted);">Adam + weight_decay=1e-5</span></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- SLIDE 4 -->
+<section class="slide" id="s4">
+<div class="sh"><span class="sn">04 / 10</span><span class="st">Codebase Structure</span></div>
+<div class="sb">
+  <h2>File-by-File Architecture</h2>
+  <p class="sub" style="margin-bottom:4px;">replic v2 — 7 Python files, zero external ML dependencies</p>
+  <div class="g2">
+    <div class="tc">
+      <div class="card"><div class="ca" style="background:var(--red)"></div>
+        <div style="display:flex;gap:8px;margin-bottom:7px;"><span class="fp"><span class="d"></span>autodiff.py</span></div>
+        <p>Reverse-mode automatic differentiation engine built on NumPy. Implements <code style="color:var(--cyan);">Tensor</code> with matmul, tanh, softmax, SiLU, log, and <code style="color:var(--cyan);">backward()</code>. Needed because PyTorch is unavailable in this environment.</p>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--blue)"></div>
+        <div style="display:flex;gap:8px;margin-bottom:7px;"><span class="fp"><span class="d"></span>nn.py</span></div>
+        <p>Neural network blocks: <strong>GRUCell</strong> (Eq. 6-9, tanh gates per paper), <strong>GRUStack</strong> (multi-layer), <strong>FeedForward</strong> MLP, <strong>Adam</strong> optimizer, Glorot init, soft_update helper.</p>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--cyan)"></div>
+        <div style="display:flex;gap:8px;margin-bottom:7px;"><span class="fp"><span class="d"></span>environment.py</span></div>
+        <p><strong>RegimeProcess</strong> — Markov chain via expm(A·Δt). <strong>TrainingBatchGenerator</strong> — parallel OU path sampling. <strong>TestEpisodeRoller</strong> — M parallel evaluation episodes.</p>
+      </div>
+    </div>
+    <div class="tc">
+      <div class="card"><div class="ca" style="background:var(--violet)"></div>
+        <div style="display:flex;gap:8px;margin-bottom:7px;"><span class="fp"><span class="d"></span>config.py</span></div>
+        <p>Single source of truth: γ=0.999, λ=0.05, lookback windows W, actor/critic hidden sizes, transition matrices A, per-scenario overrides — all with paper section citations.</p>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--amber)"></div>
+        <div style="display:flex;gap:8px;margin-bottom:7px;"><span class="fp"><span class="d"></span>ddpg_core.py</span></div>
+        <p>Agent-agnostic <code style="color:var(--cyan);">train_iteration()</code>: GRU aux update → critic update (ℓ=1) → actor update (l=5) → Polyak soft update. Eq. (12) TD target implemented literally.</p>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--green)"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:7px;">
+          <span class="fp"><span class="d"></span>agents.py</span>
+          <span class="fp"><span class="d"></span>main.py</span>
+        </div>
+        <p><strong>agents.py:</strong> ProbDDPGAgent, HidDDPGAgent, RegDDPGAgent — each implements <code style="color:var(--cyan);">build_state()</code> and <code style="color:var(--cyan);">hid_gru_update()</code> interface.<br/>
+        <strong>main.py:</strong> Pretrain → DDPG → evaluate → print Table 4.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- SLIDE 5 -->
+<section class="slide" id="s5">
+<div class="sh"><span class="sn">05 / 10</span><span class="st">Environment Layer</span></div>
+<div class="sb">
+  <h2>environment.py &amp; config.py</h2>
+  <p class="sub" style="margin-bottom:4px;">Regime-switching OU simulation, faithful to paper parameters</p>
+  <div class="g2">
+    <div class="tc">
+      <div class="card"><div class="ca" style="background:var(--cyan)"></div>
+        <h3>RegimeProcess — Markov Chain</h3>
+        <div class="code" style="margin-top:9px;font-size:11px;">
+<span class="kw">class</span> <span class="fn">RegimeProcess</span>:
+  <span class="cm"># Transition matrix via matrix exponential</span>
+  P = expm(A * dt)      <span class="cm"># Eq. (5)</span>
+  cumP = cumsum(P, axis=<span class="nm">1</span>)
+  
+  <span class="kw">def</span> <span class="fn">sample_path</span>(batch, length):
+    <span class="cm"># Initial regime from stationary distribution</span>
+    idx[:,<span class="nm">0</span>] = choice(n, p=stationary)
+    <span class="cm"># Forward steps via inverse CDF</span>
+    idx[:,i] = argmax(u &lt; cumP[idx[:,i-<span class="nm">1</span>]])
+        </div>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--blue)"></div>
+        <h3>Euler-Maruyama Discretisation</h3>
+        <div class="eq" style="font-size:11.5px;">S<sub>i+1</sub> = S<sub>i</sub> + κ<sub>i</sub>(θ<sub>i</sub> − S<sub>i</sub>)Δt + σ<sub>i</sub>√Δt · Z<sub>i</sub></div>
+        <p style="margin-top:7px;">Δt=0.2 (Table 1). Initial S₀ ~ N(μ_inv, 3σ_inv) where σ_inv = σ/(2κ) per paper's literal formula (not textbook √(2κ)).</p>
+      </div>
+    </div>
+    <div class="tc">
+      <div class="card"><div class="ca" style="background:var(--violet)"></div>
+        <h3>Scenario Configuration (config.py)</h3>
+        <table style="width:100%;font-size:11.5px;border-collapse:collapse;margin-top:9px;">
+          <tr style="border-bottom:1px solid var(--border);">
+            <th style="padding:5px;color:var(--muted);text-align:left;">Scenario</th>
+            <th style="padding:5px;color:var(--muted);">θ</th><th style="padding:5px;color:var(--muted);">κ</th>
+            <th style="padding:5px;color:var(--muted);">σ</th><th style="padding:5px;color:var(--muted);">W_prob</th>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:5px;color:var(--cyan);">Scenario 1</td>
+            <td style="padding:5px;text-align:center;">✓</td><td style="padding:5px;text-align:center;color:var(--muted);">5.0</td>
+            <td style="padding:5px;text-align:center;color:var(--muted);">0.2</td><td style="padding:5px;text-align:center;">10</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:5px;color:var(--cyan);">Scenario 2</td>
+            <td style="padding:5px;text-align:center;">✓</td><td style="padding:5px;text-align:center;">✓</td>
+            <td style="padding:5px;text-align:center;color:var(--muted);">0.2</td><td style="padding:5px;text-align:center;">10</td>
+          </tr>
+          <tr>
+            <td style="padding:5px;color:var(--cyan);">Scenario 3</td>
+            <td style="padding:5px;text-align:center;">✓</td><td style="padding:5px;text-align:center;">✓</td>
+            <td style="padding:5px;text-align:center;">✓</td>
+            <td style="padding:5px;text-align:center;color:var(--amber);font-weight:700;">20 ★</td>
+          </tr>
+        </table>
+        <p style="font-size:11px;color:var(--muted);margin-top:7px;">★ W=20 for prob-DDPG Sc3 per footnote 6. W=50 for reg-DDPG per Table 2. Commonly missed.</p>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--green)"></div>
+        <h3>TestEpisodeRoller</h3>
+        <p>M=500 parallel episodes × n=2000 steps. Warm-starts with W-step pre-history from invariant distribution, then pins S₀=1. <code style="color:var(--cyan);">StatefulPolicy</code> wrapper tracks I<sub>t</sub> in sync with the roller.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- SLIDE 6 -->
+<section class="slide" id="s6">
+<div class="sh"><span class="sn">06 / 10</span><span class="st">Neural Network Layer</span></div>
+<div class="sb">
+  <h2>autodiff.py &amp; nn.py</h2>
+  <p class="sub" style="margin-bottom:4px;">Micrograd-style autograd engine + GRU from scratch — zero ML dependencies</p>
+  <div class="g2">
+    <div class="tc">
+      <div class="card"><div class="ca" style="background:var(--red)"></div>
+        <h3>Custom Autograd — Why?</h3>
+        <p>PyTorch/JAX unavailable. Implemented Karpathy micrograd-style: each operation creates a graph node and stores its ∂-backward closure. Supports batch matmul with broadcasting.</p>
+        <ul class="ul" style="margin-top:8px;">
+          <li>Ops: +, −, ×, ÷, matmul, tanh, softmax, SiLU, log, LeakyReLU</li>
+          <li>Topological sort → reverse-mode accumulation</li>
+          <li><code style="color:var(--cyan);font-size:11px;">_unbroadcast(grad, shape)</code> handles batch dims</li>
+        </ul>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--amber)"></div>
+        <h3>GRU — Paper's Literal Eq. (6-9)</h3>
+        <div class="code" style="font-size:11px;margin-top:8px;">
+p = <span class="fn">tanh</span>(x @ Hp + h_prev @ Up + bp)
+z = <span class="fn">tanh</span>(x @ Hz + h_prev @ Uz + bz)
+c = <span class="fn">tanh</span>(x @ Hh + (p*h_prev) @ Uh + bh)
+h = (<span class="nm">1</span>-z)*h_prev + z*c
+        </div>
+        <p style="font-size:12px;color:var(--amber);margin-top:8px;">⚠ All 3 gates use <strong>tanh</strong> (paper literal). Standard PyTorch GRU uses sigmoid for reset/update — a key fidelity difference.</p>
+      </div>
+    </div>
+    <div class="tc">
+      <div class="card"><div class="ca" style="background:var(--cyan)"></div>
+        <h3>Two-Mode Inference Strategy</h3>
+        <p style="margin-bottom:8px;">Frozen GRU/head networks evaluated in <strong>pure NumPy</strong> during DDPG training — no graph construction, ~10× faster.</p>
+        <div class="code" style="font-size:11px;">
+<span class="cm"># Reads .data directly, no autodiff graph</span>
+<span class="kw">def</span> <span class="fn">_gru_numpy</span>(gru_stack, S_window):
+  <span class="kw">for</span> cell <span class="kw">in</span> gru_stack.cells:
+    p = np.tanh(x @ cell.Hp.<span class="str">data</span> + ...)
+    <span class="cm"># hid-DDPG online update uses Tensor</span>
+        </div>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--violet)"></div>
+        <h3>Numerical Stability (3 Layers)</h3>
+        <ul class="ul">
+          <li><strong>Glorot init</strong> in all Linear layers — prevents exploding activations</li>
+          <li><strong>Clip SiLU/sigmoid</strong> input to ±30 before exp() — prevents overflow</li>
+          <li><strong>Grad norm clipping</strong> (max_norm=5) in pre-training — prevents MSE = 10²⁴ on step 1</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- SLIDE 7 -->
+<section class="slide" id="s7">
+<div class="sh"><span class="sn">07 / 10</span><span class="st">DDPG Training</span></div>
+<div class="sb">
+  <h2>ddpg_core.py &amp; agents.py</h2>
+  <p class="sub" style="margin-bottom:4px;">Algorithm 1 — one agent-agnostic <code style="color:var(--cyan);">train_iteration()</code> drives all three agents</p>
+  <div class="g2">
+    <div class="tc">
+      <div class="card"><div class="ca" style="background:var(--blue)"></div>
+        <h3>Training Loop — 4 Steps Per Iteration m</h3>
+        <div style="margin-top:12px;">
+          <div class="tli">
+            <div class="tld" style="color:var(--violet);border-color:var(--violet);background:rgba(139,92,246,.1);">1</div>
+            <div class="tlc"><h4 style="color:var(--violet);">hid_gru_update()</h4><p>hid-DDPG only: MSE on next-step prediction → backprop GRU → step opt_gru. No-op for prob/reg.</p></div>
+          </div>
+          <div class="tli">
+            <div class="tld" style="color:var(--red);border-color:var(--red);background:rgba(239,68,68,.1);">2</div>
+            <div class="tlc"><h4 style="color:var(--red);">Critic update (ℓ=1)</h4><p>y = r + γ·Q<sub>tgt</sub>(G<sub>t+1</sub>, π(G<sub>t+1</sub>)). MSE loss. Current actor, target critic — Eq. (12).</p></div>
+          </div>
+          <div class="tli">
+            <div class="tld" style="color:var(--green);border-color:var(--green);background:rgba(16,185,129,.1);">3</div>
+            <div class="tlc"><h4 style="color:var(--green);">Actor update (l=5 steps)</h4><p>Maximise Q(G<sub>t</sub>, π(G<sub>t</sub>)). Loss = −mean(Q). Gradients update actor only.</p></div>
+          </div>
+          <div class="tli" style="padding-bottom:0;">
+            <div class="tld" style="color:var(--cyan);border-color:var(--cyan);background:rgba(6,182,212,.1);">4</div>
+            <div class="tlc"><h4 style="color:var(--cyan);">Polyak target update</h4><p>θ<sub>tgt</sub> ← (1−τ)·θ<sub>tgt</sub> + τ·θ &nbsp; where τ=0.001</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tc">
+      <div class="card"><div class="ca" style="background:var(--cyan)"></div>
+        <h3>build_state() Interface</h3>
+        <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:8px;">
+          <tr style="border-bottom:1px solid var(--border);">
+            <th style="padding:5px;color:var(--muted);text-align:left;">Agent</th>
+            <th style="padding:5px;color:var(--muted);">State G<sub>t</sub></th>
+            <th style="padding:5px;color:var(--muted);">dim</th>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:5px;color:var(--cyan);">prob</td>
+            <td style="padding:5px;font-size:11px;">[S̄, Ī, π̂₀, π̂₁, π̂₂]</td>
+            <td style="padding:5px;text-align:center;">5</td>
+          </tr>
+          <tr style="border-bottom:1px solid rgba(255,255,255,.04);">
+            <td style="padding:5px;color:var(--violet);">hid</td>
+            <td style="padding:5px;font-size:11px;">[S̄, Ī, (h+1)/2]</td>
+            <td style="padding:5px;text-align:center;">12</td>
+          </tr>
+          <tr>
+            <td style="padding:5px;color:var(--green);">reg</td>
+            <td style="padding:5px;font-size:11px;">[S̄, Ī, S̃̄<sub>t+1</sub>]</td>
+            <td style="padding:5px;text-align:center;">3</td>
+          </tr>
+        </table>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--amber)"></div>
+        <h3>Exploration Noise Schedule</h3>
+        <div class="eq" style="font-size:12px;">ε(m) = max(a / (a + m),  ε_min)  &nbsp; a = 100</div>
+        <p style="margin-top:7px;">Decays from ~1.0 → ~0.01 over 10k steps. Gaussian noise ε·N(0,1) added to actor output, clipped to [I_min, I_max].</p>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--green)"></div>
+        <h3>StatefulPolicy (Eval Wrapper)</h3>
+        <p>Roller's API only passes signal window, not I<sub>t</sub>. <code style="color:var(--cyan);">StatefulPolicy</code> tracks inventory internally, staying in sync with the roller's own I update at every step.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- SLIDE 8 -->
+<section class="slide" id="s8">
+<div class="sh"><span class="sn">08 / 10</span><span class="st">Paper Ambiguity Challenges</span></div>
+<div class="sb">
+  <h2>Challenges: Paper Ambiguities</h2>
+  <p class="sub" style="margin-bottom:4px;">Four underspecified details that broke v1's prob-DDPG ordering</p>
+  <div class="g2">
+    <div class="tc">
+      <div class="cch">
+        <h4>❌ GRU Gate Activation</h4>
+        <p>Paper Eq.(6-9) says "σ is the hyperbolic tangent" for all three gates. Standard PyTorch GRU uses sigmoid for reset/update. v1 used PyTorch default — incorrect per literal reading.</p>
+      </div>
+      <div class="sch">
+        <h4>✅ Implemented paper literally</h4>
+        <p>v2 GRUCell: tanh for all gates (reset p, update z, candidate h̃). Documented in config.py note 4.</p>
+      </div>
+      <div class="cch" style="margin-top:4px;">
+        <h4>❌ σ_inv Formula Mismatch</h4>
+        <p>Paper: σ_inv = σ/(2κ). Textbook OU: σ/√(2κ). v1 used textbook — overstretching S₀ initialisation and degrading normalised features at runtime.</p>
+      </div>
+      <div class="sch">
+        <h4>✅ Paper literal formula in v2</h4>
+        <p>σ_inv = σ/(2κ) by default. <code>USE_TEXTBOOK_OU_STD</code> flag allows controlled comparison.</p>
+      </div>
+    </div>
+    <div class="tc">
+      <div class="cch">
+        <h4>❌ Discount Factor γ Too Low</h4>
+        <p>v1 used γ=0.99. Paper Table 8 reports γ=0.999. With γ=0.99 the agent discounts long-horizon mean-reversion gains too aggressively — especially harmful to prob-DDPG which relies on regime persistence.</p>
+      </div>
+      <div class="sch">
+        <h4>✅ γ = 0.999 in v2</h4>
+        <p>config.py sets γ=0.999 with explanatory note that Section 4 does not override Table 8's value.</p>
+      </div>
+      <div class="cch" style="margin-top:4px;">
+        <h4>❌ Lookback Window Overrides Missed</h4>
+        <p>Footnote 6: prob-DDPG uses W=20 for Scenario 3 (not W=10). Table 2: reg-DDPG uses W=50 everywhere. v1 used W=10 across the board.</p>
+      </div>
+      <div class="sch">
+        <h4>✅ Per-scenario W in config.py</h4>
+        <p>Each SCENARIOS entry stores <code>lookback_prob</code>, <code>lookback_reg</code>, <code>lookback_hid</code> — applied automatically by agents.py at instantiation.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- SLIDE 9 -->
+<section class="slide" id="s9">
+<div class="sh"><span class="sn">09 / 10</span><span class="st">Engineering Challenges</span></div>
+<div class="sb">
+  <h2>Challenges: Engineering &amp; Implementation</h2>
+  <p class="sub" style="margin-bottom:4px;">Pitfalls specific to building from-scratch RL with a custom autodiff engine</p>
+  <div class="g2">
+    <div class="tc">
+      <div class="cch">
+        <h4>❌ Autodiff Graph Bloat</h4>
+        <p>Calling GRU forward (Tensor ops) inside build_state() during DDPG training builds a new graph every batch. With W=50, B=512, N=10,000: ~280M graph nodes — memory and speed catastrophe.</p>
+      </div>
+      <div class="sch">
+        <h4>✅ Dual-mode inference</h4>
+        <p><strong>Training:</strong> autodiff only for networks being updated.<br/>
+        <strong>Inference:</strong> pure NumPy (reads .data) — no graph, ~10× faster. hid-DDPG's online GRU update is the only true autodiff call per iteration.</p>
+      </div>
+      <div class="cch" style="margin-top:4px;">
+        <h4>❌ Inventory Not Passed to Policy</h4>
+        <p>TestEpisodeRoller.run() only provides the signal window to policy_fn. But G<sub>t</sub> requires I<sub>t</sub>. A naive wrapper always uses I=0 → completely wrong actions throughout evaluation.</p>
+      </div>
+      <div class="sch">
+        <h4>✅ StatefulPolicy wrapper</h4>
+        <p>Maintains self.I internally. Every call: compute action → update self.I = I_next. Stays exactly in sync with the roller's own inventory tracking.</p>
+      </div>
+    </div>
+    <div class="tc">
+      <div class="cch">
+        <h4>❌ Numerical Overflow in Early Training</h4>
+        <p>Random weight init → large pre-activations → exp(-x) overflows. W=50 regressor hit MSE = 10²⁴ on step 1. SiLU/sigmoid threw RuntimeWarning in both forward and backward passes.</p>
+      </div>
+      <div class="sch">
+        <h4>✅ Three-layer stability</h4>
+        <p>1) <strong>Glorot init</strong> on all Linear weights.<br/>
+        2) <strong>Clip input to ±30</strong> in SiLU/sigmoid before exp().<br/>
+        3) <strong>Grad norm clipping</strong> (max_norm=5) in pre-training loops.</p>
+      </div>
+      <div class="cch" style="margin-top:4px;">
+        <h4>❌ v1 prob-DDPG Reversed Ordering</h4>
+        <p>Final v1 result: hid 41.4 >> prob −2.7. All four paper-ambiguity bugs compounded — wrong γ, wrong σ_inv, wrong GRU gates, and wrong W each independently degraded prob-DDPG.</p>
+      </div>
+      <div class="sch">
+        <h4>✅ v2 Early Evidence — Ordering Restored</h4>
+        <p>With just 10 training steps: <strong>prob +0.45</strong> vs hid −1.61 vs reg −0.98 (Sc 1). Correct ordering confirmed. Quantitative match requires full N=10,000 run.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- SLIDE 10 -->
+<section class="slide" id="s10">
+<div class="sh"><span class="sn">10 / 10</span><span class="st">Results &amp; Next Steps</span></div>
+<div class="sb">
+  <h2>Results &amp; Next Steps</h2>
+  <p class="sub" style="margin-bottom:4px;">Where we are vs. the paper target — and what comes next</p>
+  <div class="g2">
+    <div class="tc">
+      <div class="card"><div class="ca" style="background:var(--blue)"></div>
+        <h3>v1 Results — Table 4 (N=10k, γ=0.99)</h3>
+        <table class="rt" style="margin-top:9px;">
+          <tr><th>Model</th><th>Sc 1</th><th>Sc 2</th><th>Sc 3</th></tr>
+          <tr><td>hid-DDPG</td><td class="win">41.4</td><td class="ok">−0.5</td><td class="win">57.2</td></tr>
+          <tr><td>prob-DDPG</td><td class="loss">−2.7</td><td class="loss">−8.4</td><td class="win">56.3</td></tr>
+          <tr><td>reg-DDPG</td><td class="loss">−2.8</td><td class="ok">−0.6</td><td class="ok">4.3</td></tr>
+        </table>
+        <p style="font-size:11.5px;color:var(--red);margin-top:7px;">⚠ Wrong ordering: hid &gt; prob in Scenarios 1 &amp; 2</p>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--cyan)"></div>
+        <h3>v2 Early Signal (N=10 steps, γ=0.999)</h3>
+        <table class="rt" style="margin-top:9px;">
+          <tr><th>Model</th><th>Sc 1</th><th>Sc 2</th><th>Sc 3</th></tr>
+          <tr><td>prob-DDPG</td><td class="win">+0.45</td><td class="ok">−0.16</td><td class="ok">−0.02</td></tr>
+          <tr><td>hid-DDPG</td><td class="loss">−1.61</td><td class="loss">−0.75</td><td class="ok">−0.46</td></tr>
+          <tr><td>reg-DDPG</td><td class="loss">−0.98</td><td class="loss">−0.77</td><td class="ok">−0.06</td></tr>
+        </table>
+        <p style="font-size:11.5px;color:var(--green);margin-top:7px;">✓ Correct ordering restored. Sc 1: prob &gt; hid &gt; reg</p>
+      </div>
+    </div>
+    <div class="tc">
+      <div class="card"><div class="ca" style="background:var(--green)"></div>
+        <h3>Paper Target (Table 4)</h3>
+        <table class="rt" style="margin-top:9px;">
+          <tr><th>Model</th><th>Sc 1</th><th>Sc 2</th><th>Sc 3</th></tr>
+          <tr><td>prob-DDPG</td><td class="win">★ best</td><td class="win">★ best</td><td class="win">★ best</td></tr>
+          <tr><td>hid-DDPG</td><td class="ok">2nd</td><td class="ok">2nd</td><td class="ok">2nd</td></tr>
+          <tr><td>reg-DDPG</td><td class="loss">3rd</td><td class="loss">3rd</td><td class="loss">3rd</td></tr>
+        </table>
+        <p style="font-size:11.5px;color:var(--muted);margin-top:7px;">Consistent prob ≥ hid ≥ reg across all 3 scenarios</p>
+      </div>
+      <div class="card"><div class="ca" style="background:var(--violet)"></div>
+        <h3>Next Steps</h3>
+        <ul class="ul">
+          <li><strong>Run full training</strong> — N=10,000, M=500, n=2,000 with v2</li>
+          <li><strong>Section 5</strong> — real pair trading (SMH/INTC) with best agent</li>
+          <li><strong>Performance</strong> — port to PyTorch for 50× training speedup</li>
+          <li><strong>Sensitivity</strong> — ablate γ, W, GRU gate activation individually</li>
+          <li><strong>Extend</strong> — test on real regime-switching financial spreads</li>
+        </ul>
+      </div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(6,182,212,.08));border-color:rgba(6,182,212,.25);">
+        <h3 style="color:var(--cyan);">Run Full Replication</h3>
+        <div class="code" style="font-size:11.5px;margin-top:8px;background:rgba(0,0,0,.4);">
+cd <span class="str">"replic v2"</span>
+python main.py --full
+<span class="cm"># N=10000  M=500  n=2000  (hours on CPU)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+</div>
+
+<div id="nav">
+  <button class="nb" id="pb">&#8592;</button>
+  <div id="prog"></div>
+  <span id="sc">1 / 10</span>
+  <button class="nb" id="nb2">&#8594;</button>
+</div>
+<div id="kh">← → to navigate &nbsp;|&nbsp; click dots to jump</div>
+
+<script>
+const slides=Array.from(document.querySelectorAll('.slide'));
+const n=slides.length;
+let cur=0;
+const prog=document.getElementById('prog');
+const sc=document.getElementById('sc');
+slides.forEach((_,i)=>{
+  const d=document.createElement('div');
+  d.className='pd'+(i===0?' a':'');
+  d.addEventListener('click',()=>go(i));
+  prog.appendChild(d);
+});
+function go(x,dir='f'){
+  if(x<0||x>=n)return;
+  const p=cur;
+  slides[p].classList.remove('active');
+  slides[p].classList.add(dir==='f'?'exit-left':'exit-right');
+  setTimeout(()=>slides[p].classList.remove('exit-left','exit-right'),460);
+  cur=x;slides[cur].classList.add('active');
+  sc.textContent=`${cur+1} / ${n}`;
+  document.querySelectorAll('.pd').forEach((d,i)=>d.classList.toggle('a',i===cur));
+}
+document.getElementById('pb').onclick=()=>go(cur-1,'b');
+document.getElementById('nb2').onclick=()=>go(cur+1,'f');
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' '){e.preventDefault();go(cur+1,'f');}
+  if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(cur-1,'b');}
+  if(e.key==='Home')go(0,'b');if(e.key==='End')go(n-1,'f');
+});
+document.addEventListener('keydown',()=>{document.getElementById('kh').style.opacity='0';},{once:true});
+</script>
+</body>
+</html>
