@@ -1,3 +1,24 @@
+# quantstrat-replication
+
+This is our replication project for Deep reinforcement learning for optimal trading with partial information.
+
+You can start full test of paper with this command.
+```bash
+python main.py --full
+```
+
+It will start tarining first and then run synthetic repication part.
+
+It may take a bit long depends on your GPU and it will designed to use accelerator mps for Apple Silicon or CUDA for Nvidia GPU.
+
+You can validate code, tables and models with this code;
+```bash
+python main.py --steps 10 --pretrain_steps 10 --test_episodes 5 --test_steps 10
+```
+
+It should be faster than full testing code.
+
+
 # Deep Reinforcement Learning for Optimal Trading with Partial Information - Replication Codebase
 
 This repository is a PyTorch-based replication of the DDPG-GRU trading framework proposed in the paper **"Deep reinforcement learning for optimal trading with partial information" (2025)** by Andrea Macrì, Sebastian Jaimungal, and Fabrizio Lillo. 
