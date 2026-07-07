@@ -18,7 +18,7 @@ python main.py --steps 10 --pretrain_steps 10 --test_episodes 5 --test_steps 10
 
 It should be faster than full testing code.
 
-for v2 Claude version you can test it;
+## for replicv2 generated with Claude and you can test it;
 ```bash
 cd "replic v2"
 ```
