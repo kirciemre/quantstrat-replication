@@ -19,14 +19,24 @@ python main.py --steps 10 --pretrain_steps 10 --test_episodes 5 --test_steps 10
 It should be faster than full testing code.
 
 for v2 Claude version you can test it;
-
+```bash
 cd "replic v2"
-# Quick test 
+```
+
+Quick test
+```bash
 python main.py
-# Mid-test
+```
+
+Mid-size test
+```bash
 python main.py --ddpg_steps 500 --pretrain_steps 500 --test_episodes 50 --test_steps 200
-# Full paper (takes too much time around 6 hr or more)
+```
+
+Full paper (takes too much time around 6 hr or more)
+```bash
 python main.py --full
+```
 
 # Deep Reinforcement Learning for Optimal Trading with Partial Information - Replication Codebase
 
