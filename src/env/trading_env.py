@@ -37,13 +37,15 @@ def sample_batch(batch_size, W, rng, regimes, A, kappa, sigma, dt, I_max):
       I_max      : inventory bound; training inventories are drawn U[-I_max, I_max].
 
     Returns a dict of stacked arrays:
-      windows : (batch_size, W+1)  the GRU look-back, S_{t-W} .. S_t
-      S_t     : (batch_size,)      current signal (== windows[:, -1])
-      S_next  : (batch_size,)      next signal S_{t+1}, for the reward
-      regime  : (batch_size,)      active regime index at t (prob-DDPG label)
-      I_t     : (batch_size,)      randomly sampled current inventory
+      windows     : (batch_size, W+1)  the GRU look-back, S_{t-W} .. S_t
+      next_windows: (batch_size, W+1)  the GRU look-back for the next step, S_{t-W+1} .. S_{t+1}
+      S_t         : (batch_size,)      current signal (== windows[:, -1])
+      S_next      : (batch_size,)      next signal S_{t+1}, for the reward
+      regime      : (batch_size,)      active regime index at t (prob-DDPG label)
+      I_t         : (batch_size,)      randomly sampled current inventory
     """
     windows = np.zeros((batch_size, W+1))
+    next_windows = np.zeros((batch_size, W+1))
     S_t = np.zeros(batch_size)
     S_next = np.zeros(batch_size)
     I_t = np.zeros(batch_size)
@@ -55,12 +57,13 @@ def sample_batch(batch_size, W, rng, regimes, A, kappa, sigma, dt, I_max):
         S, regime_index = simulate_path(W+2, rng, regimes, A, kappa, sigma, dt)
 
         windows[i] = S[:W+1]                       # look-back window (W+1 values)
+        next_windows[i] = S[1:W+2]                 # indices 1..W+1 (ends at t+1)
         S_t[i] = S[W]                              # "now" = last element of the window
         S_next[i] = S[W+1]                         # one step ahead, for the reward
         regime[i] = regime_index[W]                # regime active at "now"
         I_t[i] = rng.uniform(-I_max, I_max)        # random inventory (NOT accumulated)
 
-    return {"windows": windows, "S_t": S_t, "S_next": S_next, "regime": regime, "I_t": I_t}
+    return {"windows": windows, "next_windows":next_windows, "S_t": S_t, "S_next": S_next, "regime": regime, "I_t": I_t}
 
 
 def step_reward(I_t, I_next, S_t, S_next, lam):
