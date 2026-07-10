@@ -26,56 +26,50 @@ Method roles:
 """
 
 import torch
+import torch.nn as nn
 
 from src.models.actor import Actor
 from src.models.critic import Critic
 
 
 class DDPG:
-    def __init__(self, state_dim, action_dim, hidden_dim, n_layers, I_max, gamma, tau, lr):
-        self.gamma = gamma      # discount factor for future rewards
-        self.I_max = I_max      # inventory bound (used to clamp noisy actions)
-        self.tau = tau          # soft-update rate: fraction the targets move toward the mains
+    def __init__(self, state_dim, action_dim, d_NN, l_NN, I_max, gamma, tau, lr):
+        self.gamma = gamma
+        self.I_max = I_max
+        self.tau = tau
         self.lr = lr
 
-        # Main networks (these learn) + frozen target copies (stable Bellman target).
-        self.actor = Actor(state_dim, hidden_dim, n_layers, I_max)
-        self.actor_target = Actor(state_dim, hidden_dim, n_layers, I_max)
-        self.critic = Critic(state_dim, action_dim, hidden_dim, n_layers)
-        self.critic_target = Critic(state_dim, action_dim, hidden_dim, n_layers)
+        self.actor = Actor(state_dim, d_NN, l_NN, I_max)
+        self.actor_target = Actor(state_dim, d_NN, l_NN, I_max)
+        self.critic = Critic(state_dim, action_dim, d_NN, l_NN)
+        self.critic_target = Critic(state_dim, action_dim, d_NN, l_NN)
 
-        # Start the targets as EXACT clones of the mains (else they'd hold
-        # different random weights). Copies weight values across.
         self.actor_target.load_state_dict(self.actor.state_dict())
         self.critic_target.load_state_dict(self.critic.state_dict())
 
-        # Optimizers train the MAIN networks only. Targets are never trained by
-        # gradients -- they change only via soft_update.
-        self.actor_opt = torch.optim.Adam(self.actor.parameters(), lr=lr)
-        self.critic_opt = torch.optim.Adam(self.critic.parameters(), lr=lr)
+        self.critic_opt = torch.optim.AdamW(self.critic.parameters(), lr=lr, weight_decay=1e-5)
+        self.actor_opt  = torch.optim.AdamW(self.actor.parameters(),  lr=lr, weight_decay=1e-5)
 
 
     def update_critic(self, state, action, reward, next_state):
         """
-        Fit the Critic to the Bellman target (Eqs. 11-12): its prediction
-        Q(s, a) should match reward + gamma * Q_target(s', a').
+        Fit the Critic to the Bellman target (Eqs. 11-12): the prediction
+        Q(G_t, I_{t+1}) should match y = r + gamma * Q_tgt(G'_{t+1}, pi_tgt(G'_{t+1})).
+        All inputs are pre-built in the training loop (state = G_t, next_state =
+        G'_{t+1} with the shifted-window encoding). `action` is the EXECUTED action
+        (already includes exploration noise, already detached).
         """
-        # Prediction side: MAIN critic, WITH gradients (this is what we train).
-        q_pred = self.critic(state, action)     # (batch, 1)
-
-        # Target side: TARGET networks, NO gradients. no_grad freezes this into a
-        # constant goal so gradients don't leak into the (frozen) target nets.
+        # Target side: TARGET networks, NO gradients (frozen goal).
         with torch.no_grad():
-            next_action = self.actor_target(next_state)
-            q_next = self.critic_target(next_state, next_action)
+            next_action = self.actor_target(next_state)           # pi_tgt(G'_{t+1})
+            q_next = self.critic_target(next_state, next_action)   # Q_tgt(...)
+            target = reward + self.gamma * q_next                  # y = r + gamma * Q_tgt
 
-        target = reward + self.gamma * q_next
+        # Prediction side: MAIN critic, WITH gradients (this is what we train).
+        q_pred = self.critic(state, action)                        # Q(G_t, I_{t+1})
 
-        # Regression: pull the prediction toward the target (mean squared error).
         loss = torch.nn.functional.mse_loss(q_pred, target)
 
-        # Standard update ritual: clear old grads -> backprop -> step the optimizer.
-        # (gradients accumulate by default, so zero_grad first is mandatory.)
         self.critic_opt.zero_grad()
         loss.backward()
         self.critic_opt.step()
@@ -86,14 +80,14 @@ class DDPG:
     def update_actor(self, state):
         """
         Push the Actor toward actions the Critic values more (Eqs. 13-14).
+        `state` is pre-built (G_t) in the training loop.
         """
         # Action from the MAIN actor WITH gradients, so they flow back through the
         # Critic into the Actor's weights (Critic -> action -> actor params).
         action = self.actor(state)
         q = self.critic(state, action)
 
-        # Actor wants to MAXIMISE Q, but optimizers minimise -> minimise -Q.
-        # (The minus sign is the whole trick; drop it and the Actor gets worse.)
+        # Actor wants to MAXIMISE Q, but optimizers minimise -> minimise -Q (Eq. 13).
         loss = -q.mean()
 
         # Only step the ACTOR optimizer: grads also land on the Critic here, but
@@ -132,7 +126,10 @@ class DDPG:
 
 
 if __name__ == "__main__":
-    ddpg = DDPG(state_dim=12, action_dim=1, hidden_dim=20, n_layers=4,
+    from src.models.gru import GRUEncoder
+
+    encoder = GRUEncoder(10, 1)
+    ddpg = DDPG(encoder, state_dim=12, action_dim=1, hidden_dim=20, n_layers=4,
                 I_max=10, gamma=0.999, tau=0.001, lr=0.001)
 
     # Targets start identical to mains.
@@ -140,7 +137,9 @@ if __name__ == "__main__":
     b = next(ddpg.actor_target.parameters())
     assert torch.equal(a, b)
 
-    state = torch.randn(8, 12)
+    S_t = torch.randn(8, 1)
+    I_t = torch.randn(8, 1)
+    windows = torch.randn(8, 11)
     action = torch.randn(8, 1)
     reward = torch.randn(8, 1)
     next_state = torch.randn(8, 12)
@@ -148,12 +147,11 @@ if __name__ == "__main__":
     # Smoke test: on a fixed batch, each loss should DECREASE over repeated calls.
     print("Critic update test:")
     for _ in range(10):
-        print(ddpg.update_critic(state, action, reward, next_state))
+        print(ddpg.update_critic(S_t, I_t, windows, action, reward, next_state))
 
     print("Actor update test:")
-    state = torch.randn(8, 12)
     for _ in range(10):
-        print(ddpg.update_actor(state))
+        print(ddpg.update_actor(S_t, I_t, windows))
 
     # After training the main actor, the target has NOT moved -> no longer equal.
     print(torch.equal(a, b))    # should be False

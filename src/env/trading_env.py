@@ -8,8 +8,9 @@ of independent random (signal-window, inventory) situations each iteration --
 there is no replay buffer and no path dependence, because trades have no market
 impact. So this module is a batch FACTORY, not a stateful environment.
 
-  sample_batch : produces a batch of independent training samples
-  step_reward  : applies the per-step reward (Eq. 4) across a batch
+  sample_batch            : produces a batch of independent training samples
+  step_reward             : applies the per-step reward (Eq. 4) across a batch
+  normalize_state_features: scales S and I to [0, 1] before they enter the nets
 
 IMPORTANT (training vs. evaluation): the windows here are short, independent,
 non-contiguous paths with RANDOMLY sampled inventories -- correct for training.
@@ -22,6 +23,40 @@ from src.data.ou_simulator import simulate_path
 from src.env.reward import reward
 
 import numpy as np
+
+
+# --- feature normalization constants (single source of truth) ---
+# The paper normalizes the DDPG features to [0, 1] (Sec. 3.2.1). These bounds
+# define that mapping and MUST be identical in training and evaluation -- that
+# is the whole point of defining them here once and importing in both places.
+# S_MIN/S_MAX bracket the theta-only signal range (regimes {0.9,1,1.1} plus a
+# few stationary stds); revisit if the regime set changes.
+S_MIN = 0.5
+S_MAX = 1.5
+
+
+def normalize_state_features(S, s_min=S_MIN, s_max=S_MAX):
+    """
+    Scale the raw signal S into [0, 1] for the networks.
+
+    Only the features the networks SEE are normalized -- NOT the reward, which
+    is computed from raw quantities (real P&L in real units). Apply this
+    identically in training and eval (same constants) or the Actor will see
+    out-of-distribution inputs.
+
+      S : signal value(s)      -> (S - s_min) / (s_max - s_min)
+
+    S keeps its shape (scalars, (batch,1)). The GRU encoding
+    """
+    S_norm = (S - s_min) / (s_max - s_min)
+
+    # Clip signal to [0,1] (paper normalizes to [0,1]; signals can fall
+    # outside [s_min,s_max]). Works for both torch tensors and numpy arrays.
+    if hasattr(S_norm, 'clamp'):
+        S_norm = S_norm.clamp(0.0, 1.0)
+    else:
+        S_norm = np.clip(S_norm, 0.0, 1.0)
+    return S_norm
 
 
 # TODO: batch-vectorize paths if profiling shows this is hot
@@ -73,6 +108,9 @@ def step_reward(I_t, I_next, S_t, S_next, lam):
     Thin wrapper over env.reward.reward; exists as the named "environment step"
     the training loop calls. I_next is the agent's action (new inventory).
     All inputs are batched arrays; returns a (batch_size,) array of rewards.
+
+    NOTE: reward uses RAW (un-normalized) signal and inventory -- it is real
+    P&L in real units. Do not pass normalized values here.
     """
     return reward(I_t, I_next, S_t, S_next, lam)
 
@@ -84,3 +122,7 @@ if __name__ == "__main__":
                      np.array([[-0.1, 0.05, 0.05], [0.05, -0.1, 0.05], [0.05, 0.05, -0.1]]),
                      5, 0.2, 0.2, 10)
     print({k: v.shape for k, v in b.items()})
+
+    # Sanity: inventory 0 maps to 0.5; signal at the midpoint maps to 0.5.
+    S_norm, I_norm = normalize_state_features(np.array([1.0]), np.array([0.0]), I_max=10)
+    print("S_norm(1.0) =", S_norm, " I_norm(0) =", I_norm)   # expect [0.5] [0.5]

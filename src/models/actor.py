@@ -1,18 +1,20 @@
 """
 Actor (policy) network for the DDPG agent.
 
-The Actor is the policy pi: it maps a state to an action -- the new inventory
-I_{t+1} to hold. It is a plain MLP (Linear -> SiLU blocks) ending in a tanh
-scaled by I_max, so its output is STRUCTURALLY bounded to [-I_max, I_max]
-(paper: "final layer has tanh activation, whose output is then scaled by Imax").
+The Actor is the policy pi: it maps a state to an action -- the new INVENTORY
+LEVEL I_{t+1} to hold (not a trade quantity; paper: "returns a new level of
+inventory to be held I_{t+1}"). It is a plain MLP (Linear -> SiLU blocks) ending
+in a tanh scaled by I_max, so the output is STRUCTURALLY bounded to
+[-I_max, I_max] (paper: "final layer has tanh activation ... scaled by Imax").
 
-Note: this is why the inventory bound is deliberately NOT enforced in the reward
--- it lives here, baked into the architecture, so the agent physically cannot
-propose an out-of-range position.
+This is why the inventory bound is NOT enforced in the reward -- it lives here,
+baked into the architecture, so the agent cannot propose an out-of-range position.
 
-The state is a generic vector of width `state_dim`; the caller decides what goes
-in it (e.g. hid-DDPG uses (S_t, I_t, o_t)). Keeping the Actor agnostic to the
-state contents is what lets all three algorithm variants share it.
+The state is a generic vector of width state_dim; the caller decides its contents
+(hid-DDPG uses (S_t, I_t, o_t)). Keeping the Actor agnostic to the state contents
+is what lets all three algorithm variants share it.
+
+Arg names follow the paper: l_NN = number of hidden layers, d_NN = hidden width.
 """
 
 import torch
@@ -20,23 +22,20 @@ import torch.nn as nn
 
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, hidden_dim, n_layers, I_max):
+    def __init__(self, state_dim, d_NN, l_NN, I_max):
         super().__init__()
-        self.I_max = I_max                                   # needed in forward for output scaling
+        self.I_max = I_max                                 # needed in forward for output scaling
 
-        # Build the MLP as a list, then unpack into nn.Sequential.
-        # Width chain: state_dim -> hidden_dim -> ... -> hidden_dim -> 1.
-        # Convention: n_layers = number of hidden blocks in the loop, so the
-        # total Linear count is n_layers + 2 (input + loop + output). Pin this
-        # down when matching the paper's layer counts (Tables 1-3).
-        layers = [nn.Linear(state_dim, hidden_dim), nn.SiLU()]   # input block
+        # Width chain: state_dim -> d_NN -> ... -> d_NN -> 1.
+        # l_NN = number of hidden blocks in the loop (total Linear = l_NN + 2).
+        layers = [nn.Linear(state_dim, d_NN), nn.SiLU()]   # input block
 
-        for _ in range(n_layers):                               # hidden blocks (hidden -> hidden)
-            layers.append(nn.Linear(hidden_dim, hidden_dim))
+        for _ in range(l_NN):                              # hidden blocks (d_NN -> d_NN)
+            layers.append(nn.Linear(d_NN, d_NN))
             layers.append(nn.SiLU())
 
-        layers.append(nn.Linear(hidden_dim, 1))                 # output block: NO activation here
-                                                                # (tanh scaling happens in forward)
+        layers.append(nn.Linear(d_NN, 1))                  # output block: NO activation
+                                                           # (tanh scaling happens in forward)
         self.net = nn.Sequential(*layers)
 
     def forward(self, state):
@@ -49,11 +48,9 @@ class Actor(nn.Module):
 
 
 if __name__ == "__main__":
-    # Bound check: feed a deliberately extreme input so tanh saturates near +-1,
-    # confirming the output pins near +-I_max instead of escaping the range.
-    actor = Actor(12, 20, 4, 10)
-    state = torch.randn(8, 12) * 1000
+    # Bound check: extreme input -> tanh saturates -> output pins near +-I_max.
+    actor = Actor(state_dim=3, d_NN=20, l_NN=4, I_max=10)
+    state = torch.randn(8, 3) * 1000        # matches state_dim=3
     a = actor(state)
-
-    print(f"a.shape == {a.shape}")
-    print(f"a.abs().max() == {a.abs().max()}")
+    print(f"a.shape == {a.shape}")           # expect (8, 1)
+    print(f"a.abs().max() == {a.abs().max()}")   # expect ~10
