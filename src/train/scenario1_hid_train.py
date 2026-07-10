@@ -84,4 +84,4 @@ import os
 os.makedirs("artifacts", exist_ok=True)
 torch.save({"actor": ddpg.actor.state_dict(),
             "critic": ddpg.critic.state_dict(),
-            "encoder": encoder.state_dict()}, "artifacts/hid_ddpg.pt")
+            "encoder": encoder.state_dict()}, "artifacts/scenario1_hid.pt")

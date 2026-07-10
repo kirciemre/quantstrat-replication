@@ -2,20 +2,29 @@
 Regime-switching Ornstein-Uhlenbeck (OU) signal simulator.
 
 Reproduces the synthetic data-generating process from Section 2 of
-Macri, Jaimungal & Lillo (2025), "Deep reinforcement learning for optimal
-trading with partial information" -- the simplest setting where only the
-mean-reversion level theta switches between regimes (Table 1, row 1).
+Macri, Jaimungal & Lillo (2025). The signal follows the OU SDE (Eq. 1):
 
-The signal follows the OU SDE (Eq. 1):
-    dS_t = kappa * (theta_t - S_t) dt + sigma * dW_t
+    dS_t = kappa_t * (theta_t - S_t) dt + sigma_t * dW_t
 
-theta_t switches among discrete regimes (e.g. {0.9, 1.0, 1.1}) via a
-continuous-time Markov chain. kappa, sigma constant in this first stage.
+theta ALWAYS switches via a Markov chain. kappa and sigma may be either
+constant or switching, which selects the scenario:
 
-Initialization (paper): the signal starts at S_{t-W} ~ N(mu_inv, 3*sigma_inv),
-where sigma_inv = sigma / sqrt(2*kappa) is the OU invariant volatility and
-mu_inv is the invariant mean. For the TEST phase the paper instead fixes
-S_0 = 1, so simulate_path accepts an optional s0 to override the random draw.
+  - Scenario 1 (theta):          kappa, sigma constant.
+  - Scenario 2 (theta, kappa):   kappa switches, sigma constant.
+  - Scenario 3 (theta,kappa,sigma): kappa and sigma both switch.
+
+Each parameter that switches has its OWN independent Markov chain. The scenario
+is implied by which arguments are given (constant value vs. regime set), and the
+asserts enforce that exactly one form is supplied per parameter.
+
+Initialization (paper): S_{t-W} ~ N(mu_inv, 3*sigma_inv), where
+sigma_inv = sigma_min / sqrt(2*kappa_min) is the OU invariant volatility using
+the MINIMUM kappa/sigma across regimes (paper's rule for the switching cases).
+For the TEST phase the paper fixes S_0 = 1 (pass s0=1.0).
+
+Note the OU discretization constants a, b are computed INSIDE the loop from the
+current step's kappa_t, sigma_t (they are only constant in Scenario 1). This is
+one unified code path for all scenarios; verified to reproduce Scenario 1.
 """
 
 import numpy as np
@@ -23,51 +32,81 @@ from scipy.linalg import expm
 
 
 def simulate_path(n: int, rng: np.random.Generator, regimes: np.ndarray,
-                  A: np.ndarray, kappa: float, sigma: float, dt: float,
+                  A: np.ndarray, dt: float,
+                  kappa: float = None, regimes_kappa: np.ndarray = None, A_kappa: np.ndarray = None,
+                  sigma: float = None, regimes_sigma: np.ndarray = None, A_sigma: np.ndarray = None,
                   mu_inv: float = 1.0, s0: float = None):
   """
   Simulate one path of the regime-switching OU signal.
 
-  Args:
-    n       : number of time steps.
-    rng     : NumPy Generator (seed controlled at the call site).
-    regimes : possible theta values, e.g. np.array([0.9, 1.0, 1.1]).
-    A       : Markov generator (rate) matrix for regime switching.
-    kappa, sigma, dt : OU parameters.
-    mu_inv  : invariant mean for the training init (paper: 1.0).
-    s0      : if given, start the signal at this fixed value (TEST phase, S_0=1);
-              if None, draw S[0] ~ N(mu_inv, 3*sigma_inv) (TRAIN phase).
+  theta is always a switching chain (regimes, A required). kappa and sigma are
+  each EITHER constant (pass kappa=/sigma=) OR switching (pass regimes_kappa +
+  A_kappa / regimes_sigma + A_sigma). Exactly one form per parameter.
 
   Returns:
     S          : (n,) signal values.
-    regime_idx : (n,) active regime index at each step.
+    regime_idx : (n,) active THETA regime index at each step (prob-DDPG label).
   """
-  # One-step regime transition probabilities (Eq. 5): matrix-exponentiate the
-  # rate matrix over dt. Must be scipy.linalg.expm, NOT np.exp.
-  P = expm(A * dt)
+  # --- validate: exactly one of (constant, regimes) per parameter ---
+  assert (kappa is None) != (regimes_kappa is None), \
+      "provide exactly one of kappa (constant) or regimes_kappa (switching)"
+  
+  assert (sigma is None) != (regimes_sigma is None), \
+      "provide exactly one of sigma (constant) or regimes_sigma (switching)"
+  
+  if regimes_kappa is not None:
+    assert A_kappa is not None, "regimes_kappa requires A_kappa (its transition matrix)"
+    
+  if regimes_sigma is not None:
+    assert A_sigma is not None, "regimes_sigma requires A_sigma (its transition matrix)"
 
-  # Exact OU discretization constants (no error at any step size).
-  a = np.exp(-kappa * dt)
-  b = sigma * np.sqrt((1 - np.exp(-2 * kappa * dt)) / (2 * kappa))
+  kappa_switches = regimes_kappa is not None
+  sigma_switches = regimes_sigma is not None
+
+  # --- one-step transition matrices (Eq. 5) for each ACTIVE chain ---
+  P_theta = expm(A * dt)
+  P_kappa = expm(A_kappa * dt) if kappa_switches else None
+  P_sigma = expm(A_sigma * dt) if sigma_switches else None
+
+  # --- init uses the MINIMUM kappa / sigma across regimes (paper's rule) ---
+  kappa_min = float(np.min(regimes_kappa)) if kappa_switches else kappa
+  sigma_min = float(np.min(regimes_sigma)) if sigma_switches else sigma
 
   S = np.zeros(n)
-  regime_idx = np.zeros(n, dtype=int)
+  regime_idx = np.zeros(n, dtype=int)          # theta regime index (the label)
 
-  # Regime at step 0: no previous regime to transition from, so pick uniformly.
-  row = rng.integers(len(regimes))
-  regime_idx[0] = row
+  # --- step 0: pick each active chain's regime uniformly (no prior state) ---
+  theta_row = rng.integers(len(regimes))
+  kappa_row = rng.integers(len(regimes_kappa)) if kappa_switches else None
+  sigma_row = rng.integers(len(regimes_sigma)) if sigma_switches else None
+  regime_idx[0] = theta_row
 
-  # Signal at step 0: paper init N(mu_inv, 3*sigma_inv) for training,
-  # or the fixed s0 (=1) for the test phase.
-  sigma_inv = sigma / np.sqrt(2 * kappa)      # OU invariant volatility
+  # --- signal at step 0: N(mu_inv, 3*sigma_inv) using min params, or fixed s0 ---
+  sigma_inv = sigma_min / np.sqrt(2 * kappa_min)
   S[0] = rng.normal(mu_inv, 3 * sigma_inv) if s0 is None else s0
 
   for i in range(1, n):
-    # Advance the Markov chain; `row` is the state, so write the result back.
-    row = rng.choice(len(regimes), p=P[row])
-    theta = regimes[row]
+    # advance each active chain independently
+    theta_row = rng.choice(len(regimes), p=P_theta[theta_row])
+    theta_t = regimes[theta_row]
 
-    S[i] = theta + (S[i-1] - theta) * a + b * rng.standard_normal()
-    regime_idx[i] = row
+    if kappa_switches:
+      kappa_row = rng.choice(len(regimes_kappa), p=P_kappa[kappa_row])
+      kappa_t = regimes_kappa[kappa_row]
+    else:
+      kappa_t = kappa
+
+    if sigma_switches:
+      sigma_row = rng.choice(len(regimes_sigma), p=P_sigma[sigma_row])
+      sigma_t = regimes_sigma[sigma_row]
+    else:
+      sigma_t = sigma
+
+    # OU discretization constants for THIS step (constant only in Scenario 1)
+    a = np.exp(-kappa_t * dt)
+    b = sigma_t * np.sqrt((1 - np.exp(-2 * kappa_t * dt)) / (2 * kappa_t))
+
+    S[i] = theta_t + (S[i-1] - theta_t) * a + b * rng.standard_normal()
+    regime_idx[i] = theta_row
 
   return S, regime_idx

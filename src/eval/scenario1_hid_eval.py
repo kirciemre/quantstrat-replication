@@ -20,7 +20,7 @@ print(f"seed: {seed}")
 encoder = GRUEncoder(cfg.d_h, cfg.d_l, enc_dim=cfg.enc_dim)
 ddpg = DDPG(cfg.state_dim, cfg.action_dim, cfg.d_NN, cfg.l_NN, cfg.I_max, cfg.gamma, cfg.tau, cfg.lr)   # no encoder arg
 
-ckpt = torch.load("artifacts/hid_ddpg.pt")
+ckpt = torch.load("artifacts/scenario1_hid.pt")
 ddpg.actor.load_state_dict(ckpt["actor"])
 ddpg.critic.load_state_dict(ckpt["critic"])
 encoder.load_state_dict(ckpt["encoder"])
@@ -34,7 +34,7 @@ invs = []
 with torch.no_grad():
     for i in range(cfg.M):
         # TEST phase: fixed start S_0 = 1 (paper), inventory I_0 = 0.
-        S, _ = simulate_path(cfg.n, rng, cfg.regimes, cfg.A, cfg.kappa, cfg.sigma, cfg.dt, s0=1.0)
+        S, _ = simulate_path(cfg.n, rng, cfg.regimes, cfg.A, cfg.dt, kappa=cfg.kappa, sigma=cfg.sigma, s0=1.0)
         inventory = torch.zeros(1, 1)
         total_reward = 0.0
 

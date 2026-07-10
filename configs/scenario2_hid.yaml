@@ -1,0 +1,59 @@
+# Scenario 2 (theta AND kappa are Markov chains), hid-DDPG.
+# Single source of truth for BOTH train_agent.py and evaluate.py.
+#
+# Differences from Scenario 1: kappa now switches between two regimes {3, 7}
+# via its own independent 2-state Markov chain (A_kappa). This makes the OU
+# dynamics harder to filter. Table 1 also specifies l_NN = 5 for this scenario
+# (vs 4 in Scenario 1). Target (Table 4): hid-DDPG ~ 8.08.
+
+algorithm: hid-DDPG
+scenario: 2
+
+# --- OU / regime params ---
+regimes: [0.9, 1.0, 1.1]        # theta regimes
+A: [[-0.1, 0.05, 0.05],         # theta transition rate matrix (A_theta)
+    [0.05, -0.1, 0.05],
+    [0.05, 0.05, -0.1]]
+
+regimes_kappa: [3.0, 7.0]       # kappa regimes (slow / fast mean reversion)
+A_kappa: [[-0.1, 0.1],          # kappa transition rate matrix
+          [0.1, -0.1]]
+
+sigma: 0.2                      # constant in Scenario 2
+dt: 0.2
+
+# --- environment ---
+W: 10               # look-back window length
+I_max: 10           # inventory bound
+lam: 0.05           # transaction cost (Eq. 4)
+batch_size: 512     # Table 1
+
+# --- network dims ---
+d_h: 10             # GRU hidden size (Table 3)
+d_l: 1              # GRU layers
+d_NN: 20            # Actor/Critic hidden width (Table 1)
+l_NN: 5             # Actor/Critic hidden layers (Table 1: 5 for Scenario 2)
+action_dim: 1
+enc_dim: 1          # width of o_t (scalar projection -> state_dim 3)
+
+# --- DDPG ---
+gamma: 0.99         # synthetic experiments
+tau: 0.001
+lr: 0.001
+
+# --- training ---
+N: 10000            # iterations (Table 1)
+log_every: 500
+l: 5                # actor inner-updates per iteration
+ell: 1              # critic inner-updates per iteration
+
+# --- exploration schedule: eps = max(eps_a / (eps_a + m), eps_min) ---
+eps_a: 100
+eps_min: 0.01
+
+# --- evaluation ---
+n: 2000             # steps per test episode
+M: 500              # test episodes (Table 1)
+
+# --- reproducibility ---
+train_seed: null    # null = random seed each run (report across seeds)
