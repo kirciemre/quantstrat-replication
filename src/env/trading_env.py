@@ -1,148 +1,145 @@
 """
-Batched training-data factory for the synthetic RL experiments.
+Vectorized batch simulation for TRAINING.
 
-This is the "environment" the DDPG agent trains against, but it is deliberately
-NOT a Gym-style reset/step environment that walks one agent through a trajectory.
-Per Section 3.1 of Macri, Jaimungal & Lillo (2025), training uses fresh batches
-of independent random (signal-window, inventory) situations each iteration --
-there is no replay buffer and no path dependence, because trades have no market
-impact. So this module is a batch FACTORY, not a stateful environment.
+The per-sample `simulate_path` loop was 87% of training time (profiled): it called
+rng.choice ~338k times and recomputed expm(A*dt) once per sample (a constant!).
+This module simulates the WHOLE batch at once with array ops:
 
-  sample_batch            : produces a batch of independent training samples
-  step_reward             : applies the per-step reward (Eq. 4) across a batch
-  normalize_state_features: normalizes the SIGNAL to [0,1]; inventory stays raw
+  - transition matrices expm(A*dt) computed ONCE, not per sample
+  - all `batch_size` Markov chains advanced in one vectorized step
+  - all `batch_size` OU updates done in one vectorized step
 
-IMPORTANT (training vs. evaluation): the windows here are short, independent,
-non-contiguous paths with RANDOMLY sampled inventories -- correct for training.
-Evaluation is the opposite (one long contiguous path, inventory accumulated
-forward from I_0 = 0) and will live in eval/evaluate.py. Do NOT evaluate with
-sample_batch.
+Interface matches the old sample_batch (same returned dict), so nothing
+downstream changes. Eval still uses the scalar simulate_path (one long contiguous
+path, only M times -- not a bottleneck).
 """
 
-from src.data.ou_simulator import simulate_path
-from src.env.reward import reward
-
 import numpy as np
+from scipy.linalg import expm
+
+from src.env.reward import reward
 
 
 # --- feature normalization constants (single source of truth) ---
-# The paper normalizes the DDPG features to [0, 1] (Sec. 3.2.1). These bounds
-# define that mapping and MUST be identical in training and evaluation -- that
-# is the whole point of defining them here once and importing in both places.
-# S_MIN/S_MAX bracket the theta-only signal range (regimes {0.9,1,1.1} plus a
-# few stationary stds); revisit if the regime set changes.
 S_MIN = 0.5
 S_MAX = 1.5
 
 
 def normalize_state_features(S, s_min=S_MIN, s_max=S_MAX):
-    """
-    Normalize the state features for the networks.
-
-    IMPORTANT (replication finding): only the SIGNAL is normalized (to [0,1]).
-
-    Why: normalizing inventory to [0,1] shifts its neutral point to 0.5, which
-    breaks the policy's long/short symmetry -- the agent fails to cross zero at
-    the signal mean and its cumulative reward collapses to ~0 or negative. With
-    inventory left raw (zero-centered, and on a scale consistent with the
-    UN-normalized GRU encoding o_t), the policy correctly crosses zero at the
-    mean and reproduces the paper's result (~15.7). The paper's "features
-    normalised to [0,1]" is thus read as applying to the signal.
-
-    Reward is always computed from RAW quantities (real P&L) -- do not pass
-    normalized values to step_reward.
-
-      S : signal value(s)  -> (S - s_min) / (s_max - s_min), clipped to [0,1]
-
-    Shapes are preserved (scalars, (batch,1), (1,1)). o_t is also unnormalized.
-    """
+    """Normalize the SIGNAL to [0,1] (clipped). Inventory stays RAW."""
     S_norm = (S - s_min) / (s_max - s_min)
     if hasattr(S_norm, "clamp"):
         S_norm = S_norm.clamp(0.0, 1.0)
     else:
         S_norm = np.clip(S_norm, 0.0, 1.0)
-    return S_norm        # inventory RAW (not normalized)
+    return S_norm
 
 
-# TODO: batch-vectorize paths if profiling shows this is hot
+def _step_chains(rows, P, rng):
+    """
+    Advance a whole batch of Markov chains one step, vectorized.
+
+    rows : (batch,) int array of current regime indices
+    P    : (n_states, n_states) one-step transition matrix
+    returns : (batch,) int array of next regime indices
+    """
+    cum = P[rows].cumsum(axis=1)                    # (batch, n_states)
+    u = rng.random((rows.shape[0], 1))              # (batch, 1)
+    return (u > cum).sum(axis=1).clip(0, P.shape[1] - 1)
+
+
 def sample_batch(batch_size, W, rng, regimes, A, kappa, sigma, dt, I_max, **ou_kwargs):
     """
-    Build one training batch of independent samples.
+    Build one training batch of independent samples -- VECTORIZED.
 
-    Args:
-      batch_size : number of samples in the batch.
-      W          : look-back window length; the GRU reads W+1 signal values.
-      rng        : np.random.Generator (from np.random.default_rng(seed)).
-      regimes, A, kappa, sigma, dt : OU / theta-regime parameters (Scenario 1
-                   form). For Scenario 2/3, pass kappa/sigma as usual for any
-                   parameter that stays constant, and supply the switching ones
-                   via **ou_kwargs (see below).
-      I_max      : inventory bound; training inventories are drawn U[-I_max, I_max].
-      **ou_kwargs: optional switching-chain params forwarded to simulate_path:
-                     regimes_kappa=, A_kappa=   (Scenario 2/3: kappa switches)
-                     regimes_sigma=, A_sigma=   (Scenario 3: sigma switches)
-                   simulate_path asserts exactly one form (constant OR switching)
-                   per parameter, so for a switching parameter pass its regimes
-                   here and leave the corresponding constant (kappa=/sigma=) None.
+    Same signature and same returned dict as the original scalar version.
+    Scenario is implied by which OU params are given (see simulate_path):
+      Scenario 1: kappa=5, sigma=0.2
+      Scenario 2: kappa=None, sigma=0.2, regimes_kappa=..., A_kappa=...
+      Scenario 3: kappa=None, sigma=None, + regimes_sigma=..., A_sigma=...
 
-    NOTE: for a parameter that SWITCHES, pass None for its constant here. E.g.
-    Scenario 2 call: sample_batch(..., kappa=None, sigma=0.2, ...,
-                                  regimes_kappa=rk, A_kappa=Ak).
-
-    Returns a dict of stacked arrays:
-      windows     : (batch_size, W+1)  the GRU look-back, S_{t-W} .. S_t
-      next_windows: (batch_size, W+1)  the GRU look-back for the next step, S_{t-W+1} .. S_{t+1}
-      S_t         : (batch_size,)      current signal (== windows[:, -1])
-      S_next      : (batch_size,)      next signal S_{t+1}, for the reward
-      regime      : (batch_size,)      active theta regime index at t (prob-DDPG label)
-      I_t         : (batch_size,)      randomly sampled current inventory
+    Returns dict of stacked arrays:
+      windows      : (batch_size, W+1)   S_{t-W} .. S_t
+      next_windows : (batch_size, W+1)   S_{t-W+1} .. S_{t+1}
+      S_t          : (batch_size,)
+      S_next       : (batch_size,)
+      regime       : (batch_size,)       theta regime index at t
+      I_t          : (batch_size,)       random inventory U[-I_max, I_max]
     """
-    windows = np.zeros((batch_size, W+1))
-    next_windows = np.zeros((batch_size, W+1))
-    S_t = np.zeros(batch_size)
-    S_next = np.zeros(batch_size)
-    I_t = np.zeros(batch_size)
-    regime = np.zeros(batch_size, dtype=int)
+    regimes_kappa = ou_kwargs.get("regimes_kappa")
+    A_kappa = ou_kwargs.get("A_kappa")
+    regimes_sigma = ou_kwargs.get("regimes_sigma")
+    A_sigma = ou_kwargs.get("A_sigma")
 
-    for i in range(batch_size):
-        # Each sample is an independent fresh path of length W+2:
-        # indices 0..W are the GRU window (index W = "now"), index W+1 = next step.
-        S, regime_index = simulate_path(W+2, rng, regimes, A, dt, kappa=kappa, sigma=sigma, **ou_kwargs)
+    # --- validate: exactly one form per parameter (mirrors simulate_path) ---
+    assert (kappa is None) != (regimes_kappa is None), \
+        "provide exactly one of kappa (constant) or regimes_kappa (switching)"
+    assert (sigma is None) != (regimes_sigma is None), \
+        "provide exactly one of sigma (constant) or regimes_sigma (switching)"
+    if regimes_kappa is not None:
+        assert A_kappa is not None, "regimes_kappa requires A_kappa"
+    if regimes_sigma is not None:
+        assert A_sigma is not None, "regimes_sigma requires A_sigma"
 
-        windows[i] = S[:W+1]                       # look-back window (W+1 values)
-        next_windows[i] = S[1:W+2]                 # indices 1..W+1 (ends at t+1)
-        S_t[i] = S[W]                              # "now" = last element of the window
-        S_next[i] = S[W+1]                         # one step ahead, for the reward
-        regime[i] = regime_index[W]                # theta regime active at "now"
-        I_t[i] = rng.uniform(-I_max, I_max)        # random inventory (NOT accumulated)
+    kappa_switches = regimes_kappa is not None
+    sigma_switches = regimes_sigma is not None
 
-    return {"windows": windows, "next_windows": next_windows, "S_t": S_t,
-            "S_next": S_next, "regime": regime, "I_t": I_t}
+    n = W + 2                                    # path length per sample
 
+    # --- transition matrices: computed ONCE (was 512x redundant before) ---
+    P_theta = expm(A * dt)
+    P_kappa = expm(A_kappa * dt) if kappa_switches else None
+    P_sigma = expm(A_sigma * dt) if sigma_switches else None
+
+    # --- init uses MINIMUM kappa/sigma across regimes (paper's rule) ---
+    kappa_min = float(np.min(regimes_kappa)) if kappa_switches else kappa
+    sigma_min = float(np.min(regimes_sigma)) if sigma_switches else sigma
+    sigma_inv = sigma_min / np.sqrt(2 * kappa_min)
+
+    S = np.zeros((batch_size, n))
+    theta_idx = np.zeros((batch_size, n), dtype=int)
+
+    # --- step 0: random regimes + N(mu_inv, 3*sigma_inv) signal, all at once ---
+    th_rows = rng.integers(len(regimes), size=batch_size)
+    k_rows = rng.integers(len(regimes_kappa), size=batch_size) if kappa_switches else None
+    s_rows = rng.integers(len(regimes_sigma), size=batch_size) if sigma_switches else None
+    theta_idx[:, 0] = th_rows
+    S[:, 0] = rng.normal(1.0, 3 * sigma_inv, size=batch_size)
+
+    # --- evolve the whole batch, one timestep at a time (vectorized across batch) ---
+    for t in range(1, n):
+        th_rows = _step_chains(th_rows, P_theta, rng)
+        theta_t = regimes[th_rows]                          # (batch,)
+
+        if kappa_switches:
+            k_rows = _step_chains(k_rows, P_kappa, rng)
+            kappa_t = regimes_kappa[k_rows]                 # (batch,)
+        else:
+            kappa_t = kappa                                 # scalar
+
+        if sigma_switches:
+            s_rows = _step_chains(s_rows, P_sigma, rng)
+            sigma_t = regimes_sigma[s_rows]                 # (batch,)
+        else:
+            sigma_t = sigma                                 # scalar
+
+        # OU discretization constants for THIS step (arrays if switching)
+        a = np.exp(-kappa_t * dt)
+        b = sigma_t * np.sqrt((1 - np.exp(-2 * kappa_t * dt)) / (2 * kappa_t))
+
+        S[:, t] = theta_t + (S[:, t-1] - theta_t) * a + b * rng.standard_normal(batch_size)
+        theta_idx[:, t] = th_rows
+
+    return {
+        "windows":      S[:, :W+1],              # (batch, W+1)
+        "next_windows": S[:, 1:W+2],             # (batch, W+1)
+        "S_t":          S[:, W],                 # (batch,)
+        "S_next":       S[:, W+1],               # (batch,)
+        "regime":       theta_idx[:, W],         # (batch,)
+        "I_t":          rng.uniform(-I_max, I_max, size=batch_size),
+    }
 
 
 def step_reward(I_t, I_next, S_t, S_next, lam):
-    """
-    Apply the per-step reward (Eq. 4) across a batch.
-
-    Thin wrapper over env.reward.reward; exists as the named "environment step"
-    the training loop calls. I_next is the agent's action (new inventory).
-    All inputs are batched arrays; returns a (batch_size,) array of rewards.
-
-    NOTE: reward uses RAW (un-normalized) signal and inventory -- it is real
-    P&L in real units. Do not pass normalized values here.
-    """
+    """Per-step reward (Eq. 4) across a batch. RAW signal/inventory (real P&L)."""
     return reward(I_t, I_next, S_t, S_next, lam)
-
-
-if __name__ == "__main__":
-    # Quick manual check: print the shape of each field in one batch.
-    b = sample_batch(8, 10, np.random.default_rng(0),
-                     np.array([0.9, 1.0, 1.1]),
-                     np.array([[-0.1, 0.05, 0.05], [0.05, -0.1, 0.05], [0.05, 0.05, -0.1]]),
-                     5, 0.2, 0.2, 10)
-    print({k: v.shape for k, v in b.items()})
-
-    # Sanity: inventory 0 maps to 0.5; signal at the midpoint maps to 0.5.
-    S_norm = normalize_state_features(np.array([1.0]))
-    print("S_norm(1.0) =", S_norm)   # expect [0.5] 

@@ -10,7 +10,7 @@ from src.utils.config import load_config
 from src.utils.ou_args import ou_args_from_cfg
 
 
-cfg = load_config("configs/scenario1_hid.yaml")
+cfg = load_config("configs/scenario2_hid.yaml")
 kappa, sigma, ou_kw = ou_args_from_cfg(cfg)
 
 
@@ -22,7 +22,7 @@ print(f"seed: {seed}")
 encoder = GRUEncoder(cfg.d_h, cfg.d_l, enc_dim=cfg.enc_dim)
 ddpg = DDPG(cfg.state_dim, cfg.action_dim, cfg.d_NN, cfg.l_NN, cfg.I_max, cfg.gamma, cfg.tau, cfg.lr)   # no encoder arg
 
-ckpt = torch.load("artifacts/scenario1_hid.pt")
+ckpt = torch.load("artifacts/scenario2_hid.pt")
 ddpg.actor.load_state_dict(ckpt["actor"])
 ddpg.critic.load_state_dict(ckpt["critic"])
 encoder.load_state_dict(ckpt["encoder"])
@@ -68,7 +68,7 @@ plt.xlabel("signal $S_t$")
 plt.ylabel("chosen inventory $I_{t+1}$")
 plt.title("Policy: inventory vs signal (compare to paper Fig 13a)")
 plt.tight_layout()
-plt.savefig("policy_scatter.png", dpi=130)
+plt.savefig("policy_scatter2.png", dpi=130)
 
 episode_rewards = np.array(episode_rewards)
 print(f"mean {episode_rewards.mean():.2f} +/- {episode_rewards.std():.2f}")

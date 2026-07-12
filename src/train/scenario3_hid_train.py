@@ -8,7 +8,7 @@ from src.utils.config import load_config
 from src.utils.ou_args import ou_args_from_cfg
 
 
-cfg = load_config("configs/scenario1_hid.yaml")
+cfg = load_config("configs/scenario3_hid.yaml")
 kappa, sigma, ou_kw = ou_args_from_cfg(cfg)
 
 # --- reproducibility (numpy drives the simulator; torch drives net init + noise) ---
@@ -85,4 +85,4 @@ import os
 os.makedirs("artifacts", exist_ok=True)
 torch.save({"actor": ddpg.actor.state_dict(),
             "critic": ddpg.critic.state_dict(),
-            "encoder": encoder.state_dict()}, "artifacts/scenario1_hid.pt")
+            "encoder": encoder.state_dict()}, "artifacts/scenario3_hid.pt")

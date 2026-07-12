@@ -1,0 +1,66 @@
+# Scenario 3 (theta, kappa, AND sigma are Markov chains), hid-DDPG.
+# Single source of truth for BOTH train and eval.
+#
+# The hardest synthetic setting: all three OU parameters switch via independent
+# Markov chains. Changes from Scenario 2:
+#   - sigma now switches between {0.1, 0.3} via A_sigma (was constant 0.2).
+#   - GRU depth d_l = 2 (Table 3: the theta,kappa,sigma case uses 2 GRU layers).
+#   - l_NN = 6 (Table 1: 6 layers for Scenario 3).
+# Note: hid-DDPG keeps W = 10 here (the W=20 in the paper's footnote is
+# prob-DDPG specific).
+# Target (Table 4): hid-DDPG ~ 1.29.
+
+algorithm: hid-DDPG
+scenario: 3
+
+# --- OU / regime params (all three switch) ---
+regimes: [0.9, 1.0, 1.1]        # theta regimes
+A: [[-0.1, 0.05, 0.05],         # theta transition rate matrix (A_theta)
+    [0.05, -0.1, 0.05],
+    [0.05, 0.05, -0.1]]
+
+regimes_kappa: [3.0, 7.0]       # kappa regimes (slow / fast)
+A_kappa: [[-0.1, 0.1],
+          [0.1, -0.1]]
+
+regimes_sigma: [0.1, 0.3]       # sigma regimes (low / high volatility)
+A_sigma: [[-0.1, 0.1],
+          [0.1, -0.1]]
+
+dt: 0.2
+
+# --- environment ---
+W: 10               # look-back window (hid-DDPG keeps 10; W=20 is prob-DDPG only)
+I_max: 10           # inventory bound
+lam: 0.05           # transaction cost (Eq. 4)
+batch_size: 512     # Table 1
+
+# --- network dims ---
+d_h: 10             # GRU hidden size (Table 3)
+d_l: 2              # GRU layers (Table 3: 2 for the theta,kappa,sigma case)
+d_NN: 20            # Actor/Critic hidden width (Table 1)
+l_NN: 6             # Actor/Critic hidden layers (Table 1: 6 for Scenario 3)
+action_dim: 1
+enc_dim: 1          # width of o_t (scalar projection -> state_dim 3)
+
+# --- DDPG ---
+gamma: 0.99         # synthetic experiments
+tau: 0.001
+lr: 0.001
+
+# --- training ---
+N: 10000            # iterations (Table 1)
+log_every: 500
+l: 5                # actor inner-updates per iteration
+ell: 1              # critic inner-updates per iteration
+
+# --- exploration schedule: eps = max(eps_a / (eps_a + m), eps_min) ---
+eps_a: 100
+eps_min: 0.01
+
+# --- evaluation ---
+n: 2000             # steps per test episode
+M: 50              # test episodes (Table 1)
+
+# --- reproducibility ---
+train_seed: null    # null = random seed each run (report across seeds)
