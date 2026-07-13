@@ -26,7 +26,26 @@ S_MAX = 1.5
 
 
 def normalize_state_features(S, s_min=S_MIN, s_max=S_MAX):
-    """Normalize the SIGNAL to [0,1] (clipped). Inventory stays RAW."""
+    """
+    Normalize the state features for the networks.
+
+    IMPORTANT (replication finding): only the SIGNAL is normalized (to [0,1]).
+
+    Why: normalizing inventory to [0,1] shifts its neutral point to 0.5, which
+    breaks the policy's long/short symmetry -- the agent fails to cross zero at
+    the signal mean and its cumulative reward collapses to ~0 or negative. With
+    inventory left raw (zero-centered, and on a scale consistent with the
+    UN-normalized GRU encoding o_t), the policy correctly crosses zero at the
+    mean and reproduces the paper's result (~15.7). The paper's "features
+    normalised to [0,1]" is thus read as applying to the signal.
+
+    Reward is always computed from RAW quantities (real P&L) -- do not pass
+    normalized values to step_reward.
+
+      S : signal value(s)  -> (S - s_min) / (s_max - s_min), clipped to [0,1]
+
+    Shapes are preserved (scalars, (batch,1), (1,1)). o_t is also unnormalized.
+    """
     S_norm = (S - s_min) / (s_max - s_min)
     if hasattr(S_norm, "clamp"):
         S_norm = S_norm.clamp(0.0, 1.0)
