@@ -60,7 +60,7 @@ eps_min: 0.01
 
 # --- evaluation ---
 n: 2000             # steps per test episode
-M: 50              # test episodes (Table 1)
+M: 500              # test episodes (Table 1)
 
 # --- reproducibility ---
 train_seed: null    # null = random seed each run (report across seeds)
