@@ -47,5 +47,5 @@ n: 2000             # steps per test episode
 M: 500              # test episodes (Table 1)
 
 # --- reproducibility ---
-train_seed: 552807       # fixed seed for reproducible training
+train_seed: null       # fixed seed for reproducible training
 # set null to use random seed
