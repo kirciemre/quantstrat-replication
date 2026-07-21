@@ -1,7 +1,7 @@
-# Scenario 1 (theta-only Markov chain), hid-DDPG.
+# Scenario 1 (theta-only Markov chain), reg-DDPG.
 # Single source of truth for BOTH train_agent.py and evaluate.py.
 
-algorithm: hid-DDPG
+algorithm: reg-DDPG
 scenario: 1
 
 # --- OU / regime params (Section 2, theta-only) ---
@@ -14,7 +14,7 @@ sigma: 0.2
 dt: 0.2
 
 # --- environment ---
-W: 10               # look-back window length
+W: 50               # look-back window length
 I_max: 10           # inventory bound
 lam: 0.05           # transaction cost (Eq. 4)
 batch_size: 512     # Table 1
@@ -22,10 +22,17 @@ batch_size: 512     # Table 1
 # --- network dims ---
 d_h: 10             # GRU hidden size (Table 3)
 d_l: 1              # GRU layers
-d_NN: 20            # Actor/Critic hidden width
-l_NN: 4             # Actor/Critic hidden layers (Table 1)
+d_NN: 64            # Actor/Critic hidden width
+l_NN: 5             # Actor/Critic hidden layers (Table 1)
 action_dim: 1
 enc_dim: 1          # width of o_t (scalar projection reading -> state_dim 3)
+
+# --- GRU regressor ---
+reg_hidden_dim: 20
+reg_layers: 5
+reg_ffn_layers: 5
+reg_ffn_hidden: 64
+reg_pretrain_steps: 10000
 
 # --- DDPG ---
 gamma: 0.99         # synthetic experiments (Table 8's 0.999 is real-data only)
