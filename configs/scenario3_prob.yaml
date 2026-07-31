@@ -1,0 +1,76 @@
+# Scenario 3 (theta, kappa, AND sigma are Markov chains), prob-DDPG/PPO.
+# Two-step approach: (1) OFFLINE GRU classifier predicts the regime indices of
+# the non-stationary params (theta, kappa, sigma) via cross-entropy, then FROZEN;
+# (2) the RL agent trains on state (S_t, I_t, Phi) where Phi = concatenated
+# posteriors from the frozen classifier.
+#
+# Hyperparameters follow the paper's "GRU parameters in the prob-DDPG and in the
+# reg-DDPG two-step approach" table, which DIFFER from hid:
+#   - GRU: d_h = 20, d_l = 5 (deeper than hid), trained 10,000 iters at lr 0.001
+#   - Policy (Linear/Actor-Critic): d_NN = 64, l_NN = 5 (wider than hid's 20)
+#   - W = 10 for prob  (reg uses W = 50)
+# Target (Table 4): prob-DDPG ~ 11.24.
+
+algorithm: prob-DDPG
+scenario: 3
+
+# --- OU / regime params (identical to hid; the environment is the same) ---
+regimes: [0.9, 1.0, 1.1]        # theta regimes
+A: [[-0.1, 0.05, 0.05],         # theta transition rate matrix (A_theta)
+    [0.05, -0.1, 0.05],
+    [0.05, 0.05, -0.1]]
+
+regimes_kappa: [3.0, 7.0]       # kappa regimes (slow / fast)
+A_kappa: [[-0.1, 0.1],
+          [0.1, -0.1]]
+
+regimes_sigma: [0.1, 0.3]       # sigma regimes (low / high volatility)
+A_sigma: [[-0.1, 0.1],
+          [0.1, -0.1]]
+
+dt: 0.2
+
+# --- environment ---
+W: 10               # prob-DDPG window (table). reg-DDPG would use 50.
+I_max: 10           # inventory bound
+lam: 0.05           # transaction cost (Eq. 4)
+eta: 0.03           # Filling (quadratic trade cost) -- our extension
+psi: 0.0005         # Margin/Holding (quadratic inventory) -- our extension
+batch_size: 512     # Table 1
+
+# --- GRU classifier dims (paper prob/reg GRU table) ---
+d_h: 20             # GRU hidden size (table: d_h = 20)
+d_l: 5              # GRU layers (table: d_l = 5 -- deeper than hid)
+classifier_iters: 10000   # Stage-1 offline training length (table: N train eps 10,000)
+
+# --- policy (Actor/Critic) dims (paper "Linear layers" row) ---
+d_NN: 64            # Actor/Critic hidden width (table: 64 -- wider than hid's 20)
+l_NN: 5             # Actor/Critic hidden layers (table: 5)
+action_dim: 1
+enc_dim: 1
+
+# --- DDPG ---
+gamma: 0.999
+tau: 0.001
+lr: 0.001           # W-ADAM lr (table)
+
+# --- training ---
+N: 10000            # RL iterations (ddpg/td3 path)
+log_every: 500
+l: 5                # actor inner-updates per iteration
+ell: 1              # critic inner-updates per iteration
+
+# --- PPO (used when --model ppo) ---
+ppo_updates: 300
+ppo_lr: 0.0003
+
+# --- exploration schedule (ddpg/td3): eps = max(eps_a/(eps_a+m), eps_min) ---
+eps_a: 100
+eps_min: 0.01
+
+# --- evaluation ---
+n: 2000
+M: 500
+
+# --- reproducibility ---
+train_seed: null

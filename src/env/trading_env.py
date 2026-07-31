@@ -117,12 +117,16 @@ def sample_batch(batch_size, W, rng, regimes, A, kappa, sigma, dt, I_max, **ou_k
 
     S = np.zeros((batch_size, n))
     theta_idx = np.zeros((batch_size, n), dtype=int)
+    kappa_idx = np.zeros((batch_size, n), dtype=int) if kappa_switches else None
+    sigma_idx = np.zeros((batch_size, n), dtype=int) if sigma_switches else None
 
     # --- step 0: random regimes + N(mu_inv, 3*sigma_inv) signal, all at once ---
     th_rows = rng.integers(len(regimes), size=batch_size)
     k_rows = rng.integers(len(regimes_kappa), size=batch_size) if kappa_switches else None
     s_rows = rng.integers(len(regimes_sigma), size=batch_size) if sigma_switches else None
     theta_idx[:, 0] = th_rows
+    if kappa_switches: kappa_idx[:, 0] = k_rows
+    if sigma_switches: sigma_idx[:, 0] = s_rows
     S[:, 0] = rng.normal(1.0, 3 * sigma_inv, size=batch_size)
 
     # --- evolve the whole batch, one timestep at a time (vectorized across batch) ---
@@ -148,17 +152,35 @@ def sample_batch(batch_size, W, rng, regimes, A, kappa, sigma, dt, I_max, **ou_k
 
         S[:, t] = theta_t + (S[:, t-1] - theta_t) * a + b * rng.standard_normal(batch_size)
         theta_idx[:, t] = th_rows
+        if kappa_switches: kappa_idx[:, t] = k_rows
+        if sigma_switches: sigma_idx[:, t] = s_rows
 
     return {
         "windows":      S[:, :W+1],              # (batch, W+1)
         "next_windows": S[:, 1:W+2],             # (batch, W+1)
         "S_t":          S[:, W],                 # (batch,)
         "S_next":       S[:, W+1],               # (batch,)
-        "regime":       theta_idx[:, W],         # (batch,)
+        "regime":       theta_idx[:, W],         # (batch,) theta regime index at t
+        "regime_kappa": kappa_idx[:, W] if kappa_switches else None,   # (batch,) or None
+        "regime_sigma": sigma_idx[:, W] if sigma_switches else None,   # (batch,) or None
         "I_t":          rng.uniform(-I_max, I_max, size=batch_size),
     }
 
 
-def step_reward(I_t, I_next, S_t, S_next, lam):
-    """Per-step reward (Eq. 4) across a batch. RAW signal/inventory (real P&L)."""
-    return reward(I_t, I_next, S_t, S_next, lam)
+def step_reward(I_t, I_next, S_t, S_next, lam, eta=0.0, psi=0.0):
+    """
+    Apply the per-step reward (Eq. 4, optionally convexified) across a batch.
+ 
+    Thin wrapper over env.reward.reward. I_next is the agent's action (the new
+    inventory). eta/psi default to 0 -> the paper's Eq. (4) exactly.
+ 
+      eta : quadratic trade cost   (temporary impact)  -- TRAINING only
+      psi : quadratic holding cost (risk / margin)     -- TRAINING only
+ 
+    NOTE: reward uses RAW (un-normalized) signal and inventory -- real P&L in
+    real units. Do not pass normalized values here.
+ 
+    EVALUATION should call this WITHOUT eta/psi so reported cumulative rewards
+    stay on the paper's scale and remain comparable to Table 4.
+    """
+    return reward(I_t, I_next, S_t, S_next, lam, eta=eta, psi=psi)

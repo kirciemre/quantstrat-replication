@@ -17,12 +17,20 @@ same network on both sides makes the target chase the prediction ("dog chasing
 its tail"). The frozen copies provide a slow-moving target instead; they are
 nudged toward the mains only gradually via soft_update.
 
+LR SCHEDULER: the paper specifies "the Weighted ADAM optimiser with a scheduler"
+but does not say WHICH scheduler. We use CosineAnnealingLR over the full training
+run (T_max = N), which decays the learning rate smoothly from lr to ~0. This
+needs only one parameter (the training length) and stabilises late training --
+relevant because without it the policy keeps thrashing near the end, which shows
+up as high seed-to-seed variance (especially in Scenario 3).
+
 Method roles:
-  update_critic  : fit the Critic to the Bellman target      (Eqs. 11-12)
-  update_actor   : push the Actor toward higher-value actions (Eqs. 13-14)
-  soft_update    : nudge one target network toward its main
-  update_targets : soft-update both targets
-  select_action  : deterministic action + exploration noise (for acting)
+  update_critic    : fit the Critic to the Bellman target       (Eqs. 11-12)
+  update_actor     : push the Actor toward higher-value actions (Eqs. 13-14)
+  soft_update      : nudge one target network toward its main
+  update_targets   : soft-update both targets
+  select_action    : deterministic action + exploration noise (for acting)
+  step_schedulers  : advance the LR schedules -- call ONCE per training iteration
 """
 
 import torch
@@ -33,7 +41,9 @@ from src.models.critic import Critic
 
 
 class DDPG:
-    def __init__(self, state_dim, action_dim, d_NN, l_NN, I_max, gamma, tau, lr):
+    def __init__(self, state_dim, action_dim, d_NN, l_NN, I_max, gamma, tau, lr, N=None):
+        # N = total training iterations, used as T_max for the LR schedule.
+        # If N is None, no scheduler is created (LR stays constant).
         self.gamma = gamma
         self.I_max = I_max
         self.tau = tau
@@ -50,18 +60,24 @@ class DDPG:
         self.critic_opt = torch.optim.AdamW(self.critic.parameters(), lr=lr, weight_decay=1e-5)
         self.actor_opt  = torch.optim.AdamW(self.actor.parameters(),  lr=lr, weight_decay=1e-5)
 
+        # --- LR schedulers (paper: "Weighted ADAM optimiser with a scheduler") ---
+        if N is not None:
+            self.critic_sched = torch.optim.lr_scheduler.CosineAnnealingLR(self.critic_opt, T_max=N)
+            self.actor_sched  = torch.optim.lr_scheduler.CosineAnnealingLR(self.actor_opt,  T_max=N)
+        else:
+            self.critic_sched = None
+            self.actor_sched = None
 
     def update_critic(self, state, action, reward, next_state):
         """
         Fit the Critic to the Bellman target (Eqs. 11-12): the prediction
         Q(G_t, I_{t+1}) should match y = r + gamma * Q_tgt(G'_{t+1}, pi_tgt(G'_{t+1})).
-        All inputs are pre-built in the training loop (state = G_t, next_state =
-        G'_{t+1} with the shifted-window encoding). `action` is the EXECUTED action
-        (already includes exploration noise, already detached).
+        All inputs are pre-built in the training loop. `action` is the EXECUTED
+        action (already includes exploration noise, already detached).
         """
         # Target side: TARGET networks, NO gradients (frozen goal).
         with torch.no_grad():
-            next_action = self.actor_target(next_state)           # pi_tgt(G'_{t+1})
+            next_action = self.actor_target(next_state)            # pi_tgt(G'_{t+1})
             q_next = self.critic_target(next_state, next_action)   # Q_tgt(...)
             target = reward + self.gamma * q_next                  # y = r + gamma * Q_tgt
 
@@ -75,7 +91,6 @@ class DDPG:
         self.critic_opt.step()
 
         return loss.item()
-
 
     def update_actor(self, state):
         """
@@ -98,21 +113,32 @@ class DDPG:
 
         return loss.item()
 
+    def step_schedulers(self):
+        """
+        Advance the LR schedules. Call ONCE PER TRAINING ITERATION -- NOT inside
+        the ell/l inner update loops (stepping there would decay the LR 6x too
+        fast and drive it to zero long before training ends).
+        """
+        if self.critic_sched is not None:
+            self.critic_sched.step()
+            self.actor_sched.step()
+
+    def current_lr(self):
+        """Current actor LR (for logging -- confirms the schedule is decaying)."""
+        return self.actor_opt.param_groups[0]["lr"]
 
     def soft_update(self, target, main):
         """Nudge one target network a fraction tau toward its main network."""
-        # Manual weight assignment (not a differentiable op), hence .data / no_grad:
+        # Manual weight assignment (not a differentiable op), hence no_grad/.data:
         #   target <- tau * main + (1 - tau) * target
         with torch.no_grad():
             for tp, mp in zip(target.parameters(), main.parameters()):
                 tp.data = self.tau * mp.data + (1 - self.tau) * tp.data
 
-
     def update_targets(self):
         """Soft-update both target networks toward their mains."""
         self.soft_update(self.actor_target, self.actor)
         self.soft_update(self.critic_target, self.critic)
-
 
     def select_action(self, state, epsilon):
         """
@@ -121,37 +147,42 @@ class DDPG:
         """
         with torch.no_grad():
             action = self.actor(state)
-            noisy = action + epsilon * torch.randn_like(action)     # explore around the policy
-            return torch.clamp(noisy, -self.I_max, self.I_max)      # keep within [-I_max, I_max]
+            noisy = action + epsilon * torch.randn_like(action)    # explore around the policy
+            return torch.clamp(noisy, -self.I_max, self.I_max)     # keep within [-I_max, I_max]
 
 
 if __name__ == "__main__":
-    from src.models.gru import GRUEncoder
-
-    encoder = GRUEncoder(10, 1)
-    ddpg = DDPG(encoder, state_dim=12, action_dim=1, hidden_dim=20, n_layers=4,
-                I_max=10, gamma=0.999, tau=0.001, lr=0.001)
+    # Smoke test with the CURRENT signature (no encoder; state_dim=3; with schedule).
+    N = 1000
+    ddpg = DDPG(state_dim=3, action_dim=1, d_NN=20, l_NN=4,
+                I_max=10, gamma=0.99, tau=0.001, lr=0.001, N=N)
 
     # Targets start identical to mains.
     a = next(ddpg.actor.parameters())
     b = next(ddpg.actor_target.parameters())
-    assert torch.equal(a, b)
+    assert torch.equal(a, b), "targets should start as exact clones"
 
-    S_t = torch.randn(8, 1)
-    I_t = torch.randn(8, 1)
-    windows = torch.randn(8, 11)
+    state = torch.randn(8, 3)
     action = torch.randn(8, 1)
     reward = torch.randn(8, 1)
-    next_state = torch.randn(8, 12)
+    next_state = torch.randn(8, 3)
 
-    # Smoke test: on a fixed batch, each loss should DECREASE over repeated calls.
-    print("Critic update test:")
-    for _ in range(10):
-        print(ddpg.update_critic(S_t, I_t, windows, action, reward, next_state))
+    print("critic loss over 5 updates (should decrease on a fixed batch):")
+    for _ in range(5):
+        print(f"  {ddpg.update_critic(state, action, reward, next_state):.5f}")
 
-    print("Actor update test:")
-    for _ in range(10):
-        print(ddpg.update_actor(S_t, I_t, windows))
+    print("actor loss over 5 updates:")
+    for _ in range(5):
+        print(f"  {ddpg.update_actor(state):.5f}")
 
-    # After training the main actor, the target has NOT moved -> no longer equal.
-    print(torch.equal(a, b))    # should be False
+    # LR schedule: decays from lr toward ~0 over N iterations.
+    print(f"\nLR at start: {ddpg.current_lr():.6f}")
+    for _ in range(N // 2):
+        ddpg.step_schedulers()
+    print(f"LR at halfway (cosine -> ~lr/2): {ddpg.current_lr():.6f}")
+    for _ in range(N // 2):
+        ddpg.step_schedulers()
+    print(f"LR at end (-> ~0): {ddpg.current_lr():.8f}")
+
+    ddpg.update_targets()
+    print(f"\ntargets moved after update: {not torch.equal(a, b)}")   # True

@@ -17,6 +17,8 @@ dt: 0.2
 W: 10               # look-back window length
 I_max: 10           # inventory bound
 lam: 0.05           # transaction cost (Eq. 4)
+eta: 0.03           # Filling
+psi: 0.0005         # Margin/Holding
 batch_size: 512     # Table 1
 
 # --- network dims ---
@@ -28,7 +30,7 @@ action_dim: 1
 enc_dim: 1          # width of o_t (scalar projection reading -> state_dim 3)
 
 # --- DDPG ---
-gamma: 0.99         # synthetic experiments (Table 8's 0.999 is real-data only)
+gamma: 0.999         # synthetic experiments (Table 8's 0.999 is real-data only)
 tau: 0.001
 lr: 0.001
 

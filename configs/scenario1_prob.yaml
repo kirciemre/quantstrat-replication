@@ -1,0 +1,62 @@
+# Scenario 1 (only theta is a Markov chain), prob-DDPG/PPO.
+# Offline GRU classifier predicts the theta regime (3 classes), frozen; RL agent
+# trains on (S_t, I_t, Phi) with Phi = 3-way theta posterior. state_dim = 5.
+# Paper prob/reg GRU table hyperparameters (differ from hid).
+# Target (Table 4): prob-DDPG ~ 25.65.
+
+algorithm: prob-DDPG
+scenario: 1
+
+# --- OU / regime params (only theta switches) ---
+regimes: [0.9, 1.0, 1.1]
+A: [[-0.1, 0.05, 0.05],
+    [0.05, -0.1, 0.05],
+    [0.05, 0.05, -0.1]]
+
+kappa: 5.0          # constant (Scenario 1)
+sigma: 0.2          # constant (Scenario 1)
+dt: 0.2
+
+# --- environment ---
+W: 10
+I_max: 10
+lam: 0.05
+eta: 0.03
+psi: 0.0005
+batch_size: 512
+
+# --- GRU classifier dims (paper prob/reg GRU table) ---
+d_h: 20
+d_l: 5
+classifier_iters: 10000
+
+# --- policy dims (paper "Linear layers" row) ---
+d_NN: 64
+l_NN: 5
+action_dim: 1
+enc_dim: 1
+
+# --- DDPG ---
+gamma: 0.999
+tau: 0.001
+lr: 0.001
+
+# --- training ---
+N: 10000
+log_every: 500
+l: 5
+ell: 1
+
+# --- PPO ---
+ppo_updates: 300
+ppo_lr: 0.0003
+
+# --- exploration ---
+eps_a: 100
+eps_min: 0.01
+
+# --- evaluation ---
+n: 2000
+M: 500
+
+train_seed: null

@@ -1,0 +1,65 @@
+# Scenario 2 (theta AND kappa are Markov chains), prob-DDPG/PPO.
+# Offline GRU classifier predicts theta (3-way) + kappa (2-way) regimes, frozen;
+# RL agent trains on (S_t, I_t, Phi) with Phi = [theta post (3), kappa post (2)].
+# state_dim = 2 + 5 = 7. Paper prob/reg GRU table hyperparameters.
+# Target (Table 4): prob-DDPG ~ 18.03.
+
+algorithm: prob-DDPG
+scenario: 2
+
+# --- OU / regime params (theta and kappa switch; sigma constant) ---
+regimes: [0.9, 1.0, 1.1]
+A: [[-0.1, 0.05, 0.05],
+    [0.05, -0.1, 0.05],
+    [0.05, 0.05, -0.1]]
+
+regimes_kappa: [3.0, 7.0]
+A_kappa: [[-0.1, 0.1],
+          [0.1, -0.1]]
+
+sigma: 0.2          # constant (Scenario 2)
+dt: 0.2
+
+# --- environment ---
+W: 10
+I_max: 10
+lam: 0.05
+eta: 0.03
+psi: 0.0005
+batch_size: 512
+
+# --- GRU classifier dims (paper prob/reg GRU table) ---
+d_h: 20
+d_l: 5
+classifier_iters: 10000
+
+# --- policy dims (paper "Linear layers" row) ---
+d_NN: 64
+l_NN: 5
+action_dim: 1
+enc_dim: 1
+
+# --- DDPG ---
+gamma: 0.999
+tau: 0.001
+lr: 0.001
+
+# --- training ---
+N: 10000
+log_every: 500
+l: 5
+ell: 1
+
+# --- PPO ---
+ppo_updates: 300
+ppo_lr: 0.0003
+
+# --- exploration ---
+eps_a: 100
+eps_min: 0.01
+
+# --- evaluation ---
+n: 2000
+M: 500
+
+train_seed: null

@@ -1,19 +1,53 @@
+"""
+Per-step trading reward.
+
+Paper (Eq. 4):
+    r_t = I_{t+1} (S_{t+1} - S_t)  -  lam * |q_t|,     q_t = I_{t+1} - I_t
+
+Both terms are linear/piecewise-linear in the action, so the optimum sits at a
+CORNER (+/- I_max) -- the bang-bang behaviour observed in training. Adding a
+convex (superlinear) cost makes the objective strictly concave in the action and
+produces a unique interior optimum:
+
+    r_t = I_{t+1} (S_{t+1} - S_t)
+          - lam * |q_t|          linear cost      (spread / fees)   [paper]
+          - eta * q_t^2          temporary impact (fill quality falls with size)
+          - psi * I_{t+1}^2      holding cost     (risk / margin / exit risk)
+
+eta = psi = 0 recovers Eq. (4) exactly, so the paper-faithful reward is nested.
+
+d^2 r / da^2 = -2(eta + psi) < 0 whenever eta + psi > 0  ->  strictly concave.
+
+IMPORTANT (comparability): train with the penalties, but EVALUATE with the
+paper's reward (eta = psi = 0). Otherwise reported cumulative rewards are on a
+different scale than Table 4 and cannot be compared to 15.70 / 8.08 / 1.29.
+"""
+
 import numpy as np
-import numpy.typing as npt
 
 
-def reward(I_t: npt.ArrayLike, I_next: npt.ArrayLike,
-           S_t: npt.ArrayLike, S_next: npt.ArrayLike, lam: float) -> npt.ArrayLike:
+def reward(I_t, I_next, S_t, S_next, lam, eta=0.0, psi=0.0):
     """
-    Per-step trading reward (Macri, Jaimungal & Lillo 2025, Eq. 4):
+    Per-step reward. Works on scalars or batched arrays/tensors.
 
-        r_t = I_next * (S_next - S_t) - lam * |I_next - I_t|
+    Args:
+      I_t    : inventory held coming into the step.
+      I_next : the action -- new inventory I_{t+1}.
+      S_t, S_next : raw (UN-normalized) signal now and next step.
+      lam    : linear transaction cost (paper, Eq. 4).
+      eta    : quadratic trade cost (temporary market impact). 0 = paper.
+      psi    : quadratic inventory (holding) cost.            0 = paper.
 
-      - I_next * (S_next - S_t) : P&L from holding the NEW inventory across the step
-      - lam * |I_next - I_t|    : transaction cost on the volume traded (lam = 0.05 in the paper)
-
-    Pure function: does not enforce the inventory bound [-Imax, Imax] -- that is the
-    Actor's responsibility. Inputs may be scalars or NumPy arrays (broadcasts over a batch).
+    All quantities are RAW units -- this is real P&L, never normalized inputs.
     """
-    q_t = I_next - I_t
-    return I_next * (S_next - S_t) - lam * np.abs(q_t)
+    q = I_next - I_t
+    pnl = I_next * (S_next - S_t)
+
+    r = pnl - lam * abs(q)
+
+    if eta:
+        r = r - eta * q ** 2
+    if psi:
+        r = r - psi * I_next ** 2
+
+    return r
