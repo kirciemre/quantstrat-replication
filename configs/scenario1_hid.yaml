@@ -40,6 +40,10 @@ log_every: 500
 l: 5                # actor inner-updates per iteration
 ell: 1              # critic inner-updates per iteration
 
+# --- PPO (used when --model ppo) ---
+ppo_updates: 300
+ppo_lr: 0.0003
+
 # --- exploration schedule: eps = max(eps_a / (eps_a + m), eps_min) ---
 eps_a: 100
 eps_min: 0.01

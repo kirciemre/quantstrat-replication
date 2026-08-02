@@ -57,6 +57,6 @@ eps_min: 0.01
 
 # --- evaluation ---
 n: 2000
-M: 500
+M: 50
 
 train_seed: null

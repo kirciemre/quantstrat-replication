@@ -22,6 +22,8 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--scenario", type=int, required=True, choices=[1, 2, 3])
     p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--theta-only", action="store_true",
+                   help="classify ONLY theta (disable kappa/sigma heads) even on Sc2/Sc3")
     p.add_argument("--iters", type=int, default=None,
                    help="override cfg.classifier_iters (paper: 10000)")
     args = p.parse_args()
@@ -37,8 +39,11 @@ def main():
 
     # number of regimes per switching param (0 = constant, head disabled)
     n_theta = len(cfg.regimes)
-    n_kappa = len(ou_kw["regimes_kappa"]) if "regimes_kappa" in ou_kw else 0
-    n_sigma = len(ou_kw["regimes_sigma"]) if "regimes_sigma" in ou_kw else 0
+    if args.theta_only:
+        n_kappa = n_sigma = 0                 # theta-only ablation
+    else:
+        n_kappa = len(ou_kw["regimes_kappa"]) if "regimes_kappa" in ou_kw else 0
+        n_sigma = len(ou_kw["regimes_sigma"]) if "regimes_sigma" in ou_kw else 0
     print(f"scenario {args.scenario} | classifier heads: "
           f"theta={n_theta} kappa={n_kappa or '-'} sigma={n_sigma or '-'} | seed {seed}")
 
@@ -76,8 +81,10 @@ def main():
     os.makedirs("artifacts", exist_ok=True)
     torch.save({"state_dict": clf.state_dict(),
                 "n_theta": n_theta, "n_kappa": n_kappa, "n_sigma": n_sigma},
-               f"artifacts/scenario{args.scenario}_classifier.pt")
-    print(f"saved artifacts/scenario{args.scenario}_classifier.pt (phi_dim={clf.phi_dim})")
+               (f"artifacts/scenario{args.scenario}_classifier_thetaonly.pt" if args.theta_only
+                else f"artifacts/scenario{args.scenario}_classifier.pt"))
+    tag = "_thetaonly" if args.theta_only else ""
+    print(f"saved artifacts/scenario{args.scenario}_classifier{tag}.pt (phi_dim={clf.phi_dim})")
 
 
 if __name__ == "__main__":

@@ -24,8 +24,9 @@ from src.utils.config import load_config
 from src.utils.ou_args import ou_args_from_cfg
 
 
-def load_frozen_classifier(scenario, cfg):
-    ck = torch.load(f"artifacts/scenario{scenario}_classifier.pt")
+def load_frozen_classifier(scenario, cfg, theta_only=False):
+    tag = "_thetaonly" if theta_only else ""
+    ck = torch.load(f"artifacts/scenario{scenario}_classifier{tag}.pt")
     clf = GRUClassifier(cfg.d_h, cfg.d_l, n_theta=ck["n_theta"],
                         n_kappa=ck["n_kappa"], n_sigma=ck["n_sigma"])
     clf.load_state_dict(ck["state_dict"])
@@ -40,6 +41,8 @@ def main():
     p.add_argument("--scenario", type=int, required=True, choices=[1, 2, 3])
     p.add_argument("--model", default="ppo", choices=["ddpg", "td3", "ppo"])
     p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--theta-only", action="store_true",
+                   help="use the theta-only classifier (must have been trained with --theta-only)")
     args = p.parse_args()
 
     cfg = load_config(f"configs/scenario{args.scenario}_prob.yaml")
@@ -49,7 +52,7 @@ def main():
         cfg.train_seed if cfg.train_seed is not None else np.random.randint(0, 1_000_000))
     rng = np.random.default_rng(seed); torch.manual_seed(seed)
 
-    clf, phi_dim = load_frozen_classifier(args.scenario, cfg)
+    clf, phi_dim = load_frozen_classifier(args.scenario, cfg, args.theta_only)
     state_dim = 2 + phi_dim                     # (S_t, I_t, Phi)
     print(f"scenario {args.scenario} | model {args.model} | prob | "
           f"phi_dim {phi_dim} state_dim {state_dim} | seed {seed}")
@@ -59,9 +62,10 @@ def main():
         import os
         os.makedirs("artifacts", exist_ok=True)
         # classifier is frozen; save agent only (classifier reloaded from its own file)
-        torch.save({**agent.state_dicts(), "model": args.model, "variant": "prob"},
-                   f"artifacts/scenario{args.scenario}_{args.model}_prob.pt")
-        print(f"saved artifacts/scenario{args.scenario}_{args.model}_prob.pt")
+        variant_tag = "prob_thetaonly" if args.theta_only else "prob"
+        torch.save({**agent.state_dicts(), "model": args.model, "variant": variant_tag},
+                   f"artifacts/scenario{args.scenario}_{args.model}_{variant_tag}.pt")
+        print(f"saved artifacts/scenario{args.scenario}_{args.model}_{variant_tag}.pt")
 
     # ---------------- PPO: on-policy episodic rollouts ----------------
     if args.model == "ppo":

@@ -30,6 +30,7 @@ def main():
     p.add_argument("--seed", type=int, default=None)
     p.add_argument("--results", default=None)
     p.add_argument("--no-plot", action="store_true")
+    p.add_argument("--theta-only", action="store_true")
     args = p.parse_args()
 
     cfg = load_config(f"configs/scenario{args.scenario}_prob.yaml")
@@ -40,7 +41,8 @@ def main():
     print(f"scenario {args.scenario} | model {args.model} | prob | seed {seed}")
 
     # frozen classifier -> phi_dim -> state_dim
-    ck = torch.load(f"artifacts/scenario{args.scenario}_classifier.pt")
+    ctag = "_thetaonly" if args.theta_only else ""
+    ck = torch.load(f"artifacts/scenario{args.scenario}_classifier{ctag}.pt")
     clf = GRUClassifier(cfg.d_h, cfg.d_l, n_theta=ck["n_theta"],
                         n_kappa=ck["n_kappa"], n_sigma=ck["n_sigma"])
     clf.load_state_dict(ck["state_dict"]); clf.eval()
@@ -51,7 +53,8 @@ def main():
     tau = None if args.model == "ppo" else cfg.tau
     agent = build_agent(args.model, state_dim, cfg.action_dim, cfg.d_NN, cfg.l_NN,
                         cfg.I_max, cfg.gamma, tau, cfg.lr)
-    ack = torch.load(f"artifacts/scenario{args.scenario}_{args.model}_prob.pt")
+    vtag = "prob_thetaonly" if args.theta_only else "prob"
+    ack = torch.load(f"artifacts/scenario{args.scenario}_{args.model}_{vtag}.pt")
     agent.actor.load_state_dict(ack["actor"]); agent.actor.eval()
 
     rewards, signals, invs = [], [], []
