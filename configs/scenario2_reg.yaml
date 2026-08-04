@@ -1,18 +1,19 @@
-# Scenario 1, reg-DDPG/PPO (paper Section 3.3.3).
+# Scenario 2, reg-DDPG/PPO (paper Section 3.3.3).
 # Two-step: (1) OFFLINE GRU regressor predicts S~_{t+1} (MSE, last layer SiLU),
 # frozen; (2) RL agent trains on G_t = (S_t, I_t, S~_{t+1}) -> state_dim = 3.
 # eta/psi/ppo/gamma matched to the hid/prob configs so the three variants are
 # directly comparable on the SAME backbone.
 
 algorithm: reg-DDPG
-scenario: 1
+scenario: 2
 
 # --- OU / regime params ---
 regimes: [0.9, 1.0, 1.1]
 A: [[-0.1, 0.05, 0.05],
     [0.05, -0.1, 0.05],
     [0.05, 0.05, -0.1]]
-kappa: 5.0
+regimes_kappa: [3.0, 7.0]
+A_kappa: [[-0.1, 0.1], [0.1, -0.1]]
 sigma: 0.2
 dt: 0.2
 
