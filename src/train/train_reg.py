@@ -100,6 +100,8 @@ def main():
             if upd % 20 == 0:
                 print(f"update {upd:4d} | rollout reward {rt.sum().item():8.2f} | "
                     f"lr {agent.current_lr():.6f} | log_std {agent.actor.log_std.item():.3f}")
+                
+        save(agent)
                             
 
     else:
