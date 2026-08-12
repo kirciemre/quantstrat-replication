@@ -74,3 +74,13 @@ M: 500
 
 # --- reproducibility ---
 train_seed: null
+# --- step-1 classifier dims for src/eval/sweep_prob.py (paper Table 2) ---
+# sweep_prob uses models/classifier.py, which implements the paper's full
+# GRU -> 5x64 SiLU FFN -> softmax stack. (models/gru_classifier.py, used by
+# train_prob, goes straight from the GRU hidden state to a linear head and
+# therefore omits that FFN.)
+clf_hidden_dim: 20        # d_h
+clf_layers: 5             # d_l
+clf_ffn_layers: 5         # "Linear layers: NN layers"
+clf_ffn_hidden: 64        # "Linear layers: Hidden nodes"
+clf_pretrain_steps: 10000 # N train eps

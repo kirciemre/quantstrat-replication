@@ -76,8 +76,14 @@ def pretrain_regressor(cfg, kappa, sigma, ou_kw, steps, base_seed=12345):
     return reg
 
 
-def train_ddpg(cfg, kappa, sigma, ou_kw, reg, seed, N, full_norm=False, lr_sched=None):
+def train_ddpg(cfg, kappa, sigma, ou_kw, reg, seed, N, full_norm=False, lr_sched=None,
+               eta=0.0, psi=0.0):
     """Train a fresh DDPG with the frozen regressor, for one seed.
+
+    eta / psi are the convex training-reward penalties (quadratic trade and
+    holding cost). Both default to 0.0, i.e. the paper's plain Eq. (4).
+    Evaluation always scores on Eq. (4) regardless, so results stay comparable
+    with Table 4.
 
     lr_sched: None (fixed lr), 'cosine' (CosineAnnealingLR lr->~0 over N), or
     'step' (StepLR x0.5 every N/4). The paper mentions "W-ADAM with a scheduler"
@@ -110,7 +116,7 @@ def train_ddpg(cfg, kappa, sigma, ou_kw, reg, seed, N, full_norm=False, lr_sched
             pred_next = reg(next_windows)
         state = build_state(S_t, I_t, pred_t, cfg.I_max, full_norm)
         action = ddpg.select_action(state, epsilon)
-        reward = step_reward(I_t, action, S_t, S_next, cfg.lam)
+        reward = step_reward(I_t, action, S_t, S_next, cfg.lam, eta=eta, psi=psi)
         next_state = build_state(S_next, action, pred_next, cfg.I_max, full_norm)
         for _ in range(cfg.ell):
             ddpg.update_critic(state, action, reward, next_state)
@@ -168,6 +174,10 @@ def main():
                     help="Override the discount factor (config default is 0.99).")
     ap.add_argument("--lr_sched", choices=["cosine", "step"], default=None,
                     help="Decay the DDPG learning rate over training (paper: W-ADAM + scheduler).")
+    ap.add_argument("--eta", type=float, default=0.0,
+                    help="quadratic trade-cost penalty in the TRAINING reward (0 = paper Eq. 4)")
+    ap.add_argument("--psi", type=float, default=0.0,
+                    help="quadratic holding-cost penalty in the TRAINING reward (0 = paper Eq. 4)")
     args = ap.parse_args()
 
     cfg = load_config(f"configs/scenario{args.scenario}_reg.yaml")
@@ -186,7 +196,8 @@ def main():
         tag += f"_{args.lr_sched}"
     print(f"=== scenario {args.scenario} reg-DDPG sweep [{tag}] ===", flush=True)
     print(f"seeds={seeds}  pretrain_steps={pretrain_steps}  N={N}  M={M}  "
-          f"full_norm={args.full_norm}  gamma={cfg.gamma}", flush=True)
+          f"full_norm={args.full_norm}  gamma={cfg.gamma}  "
+          f"eta={args.eta}  psi={args.psi}", flush=True)
     p_mean, p_std = PAPER[args.scenario]
     print(f"paper: {p_mean} +/- {p_std}", flush=True)
 
@@ -198,7 +209,8 @@ def main():
     for seed in seeds:
         ts = time.time()
         ddpg = train_ddpg(cfg, kappa, sigma, ou_kw, reg, seed, N,
-                          full_norm=args.full_norm, lr_sched=args.lr_sched)
+                          full_norm=args.full_norm, lr_sched=args.lr_sched,
+                          eta=args.eta, psi=args.psi)
         rewards, mean_absI = evaluate(cfg, kappa, sigma, ou_kw, reg, ddpg, M, full_norm=args.full_norm)
         means.append(rewards.mean())
         np.save(f"artifacts/sweep_s{args.scenario}_{tag}_seed{seed}.npy", rewards)

@@ -1,19 +1,24 @@
 """
-Multi-seed psi sweep figure (the reliable version): reads _local_backup/task1_full.csv
+Multi-seed psi sweep figure: reads results/psi_sweep_multiseed.csv
 (3 scenarios x 5 psi x 3 variants x 3 seeds) and plots reward vs psi, one panel per
-scenario, with error bars (std over seeds). Shows prob on top in every panel/friction.
+scenario, with error bars (std over seeds).
+
+The subtitle counts how many (scenario, psi) cells prob leads DIRECTLY FROM THE DATA
+rather than asserting it -- prob leads 14 of 15, not all 15; the exception is
+scenario 2 at the default psi = 5e-4, where hid edges ahead.
 """
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
 from collections import defaultdict
 
+CSV = "results/psi_sweep_multiseed.csv"
 COL = {"reg": "#1baf7a", "hid": "#eb6834", "prob": "#2a78d6"}
 PSIS = [0.0, 0.0002, 0.0005, 0.001, 0.002]
 XL = ["0", "2e-4", "5e-4\n(default)", "1e-3", "2e-3"]
 
 agg = defaultdict(list)
-for r in csv.DictReader(open("_local_backup/task1_full.csv")):
+for r in csv.DictReader(open(CSV)):
     if r.get("mean"):
         agg[(int(r["scenario"]), float(r["psi"]), r["variant"])].append(float(r["mean"]))
 
@@ -33,8 +38,16 @@ for ax, sc in zip(axes, (1, 2, 3)):
     ax.set_xlabel("inventory penalty  psi  (eta=0.03)")
     ax.grid(axis="y", alpha=0.25); ax.legend(fontsize=9.5, loc="upper right")
 axes[0].set_ylabel("eval reward (paper Eq.4)")
-fig.suptitle("Multi-seed psi sweep (3 seeds ± std) — prob (blue) is on top in every scenario "
-             "at every friction level; friction only compresses & swaps 2nd/3rd",
+
+# --- count the leader in every cell instead of asserting a clean sweep ---
+cells = [(sc, p) for sc in (1, 2, 3) for p in PSIS]
+lead = {c: max(("prob", "hid", "reg"), key=lambda v: np.mean(agg[(c[0], c[1], v)])) for c in cells}
+n_prob = sum(v == "prob" for v in lead.values())
+losses = [f"S{sc} psi={p:g} ({lead[(sc, p)]})" for sc, p in cells if lead[(sc, p)] != "prob"]
+sub = f"prob (blue) leads {n_prob} of {len(cells)} scenario x friction cells"
+if losses:
+    sub += "; exception" + ("s: " if len(losses) > 1 else ": ") + ", ".join(losses)
+fig.suptitle(f"Multi-seed psi sweep (3 seeds ± std) — {sub}",
              fontsize=12, y=1.02, color="#333")
 plt.tight_layout(rect=[0, 0, 1, 0.94])
 import os

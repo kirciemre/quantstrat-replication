@@ -49,8 +49,14 @@ def build_state(S_col, I_col, o_col, I_max, norm_inventory):
     return torch.cat([S_n, I_col, o_col], dim=1)
 
 
-def train_hid(cfg, kappa, sigma, ou_kw, seed, N, norm_inventory=False):
-    """Train hid-DDPG (encoder trained jointly) for one seed."""
+def train_hid(cfg, kappa, sigma, ou_kw, seed, N, norm_inventory=False, eta=0.0, psi=0.0):
+    """Train hid-DDPG (encoder trained jointly) for one seed.
+
+    eta / psi are the convex training-reward penalties (quadratic trade and
+    holding cost). Both default to 0.0, i.e. the paper's plain Eq. (4).
+    Evaluation always scores on Eq. (4) regardless, so results stay comparable
+    with Table 4.
+    """
     rng = np.random.default_rng(seed)
     torch.manual_seed(seed)
     encoder = GRUEncoder(cfg.d_h, cfg.d_l, enc_dim=cfg.enc_dim)
@@ -77,7 +83,7 @@ def train_hid(cfg, kappa, sigma, ou_kw, seed, N, norm_inventory=False):
 
         state = build_state(S_t, I_t, o_t, cfg.I_max, norm_inventory)
         action = ddpg.select_action(state, epsilon)
-        reward = step_reward(I_t, action, S_t, S_next, cfg.lam)
+        reward = step_reward(I_t, action, S_t, S_next, cfg.lam, eta=eta, psi=psi)
         next_state = build_state(S_next, action, o_next, cfg.I_max, norm_inventory)
         for _ in range(cfg.ell):
             ddpg.update_critic(state, action, reward, next_state)
@@ -126,6 +132,10 @@ def main():
     ap.add_argument("--M", type=int, default=None)
     ap.add_argument("--norm_inventory", action="store_true",
                     help="Normalize inventory to [0,1] (the paper's reading); default leaves it raw.")
+    ap.add_argument("--eta", type=float, default=0.0,
+                    help="quadratic trade-cost penalty in the TRAINING reward (0 = paper Eq. 4)")
+    ap.add_argument("--psi", type=float, default=0.0,
+                    help="quadratic holding-cost penalty in the TRAINING reward (0 = paper Eq. 4)")
     args = ap.parse_args()
 
     cfg = load_config(f"configs/scenario{args.scenario}_hid.yaml")
@@ -136,7 +146,8 @@ def main():
     tag = "invnorm" if args.norm_inventory else "baseline"
 
     print(f"=== scenario {args.scenario} hid-DDPG sweep [{tag}] ===", flush=True)
-    print(f"seeds={seeds}  N={N}  M={M}  norm_inventory={args.norm_inventory}", flush=True)
+    print(f"seeds={seeds}  N={N}  M={M}  norm_inventory={args.norm_inventory}  "
+          f"eta={args.eta}  psi={args.psi}", flush=True)
     p_mean, p_std = PAPER[args.scenario]
     print(f"paper: {p_mean} +/- {p_std}", flush=True)
 
@@ -144,7 +155,8 @@ def main():
     means = []
     for seed in seeds:
         ts = time.time()
-        encoder, ddpg = train_hid(cfg, kappa, sigma, ou_kw, seed, N, args.norm_inventory)
+        encoder, ddpg = train_hid(cfg, kappa, sigma, ou_kw, seed, N, args.norm_inventory,
+                                  eta=args.eta, psi=args.psi)
         rewards, mean_absI = evaluate(cfg, kappa, sigma, ou_kw, encoder, ddpg, M,
                                       norm_inventory=args.norm_inventory)
         means.append(rewards.mean())

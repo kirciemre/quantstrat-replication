@@ -57,11 +57,17 @@ def pretrain_classifier(cfg, kappa, sigma, ou_kw, steps, num_classes, base_seed=
     return clf, last_acc
 
 
-def train_ddpg(cfg, kappa, sigma, ou_kw, clf, seed, N):
-    """Train a fresh DDPG with the frozen classifier posterior as a feature."""
+def train_ddpg(cfg, kappa, sigma, ou_kw, clf, seed, N, state_dim, eta=0.0, psi=0.0):
+    """Train a fresh DDPG with the frozen classifier posterior as a feature.
+
+    eta / psi are the convex training-reward penalties (quadratic trade and
+    holding cost). Both default to 0.0, i.e. the paper's plain Eq. (4).
+    Evaluation always scores on Eq. (4) regardless, so results stay comparable
+    with Table 4.
+    """
     rng = np.random.default_rng(seed)
     torch.manual_seed(seed)
-    ddpg = DDPG(cfg.state_dim, cfg.action_dim, cfg.d_NN, cfg.l_NN,
+    ddpg = DDPG(state_dim, cfg.action_dim, cfg.d_NN, cfg.l_NN,
                 cfg.I_max, cfg.gamma, cfg.tau, cfg.lr)
     epsilon = 1.0
     for m in range(N):
@@ -77,7 +83,7 @@ def train_ddpg(cfg, kappa, sigma, ou_kw, clf, seed, N):
             phi_next = clf.posterior(next_windows)
         state = torch.cat([normalize_state_features(S_t), I_t, phi_t], dim=1)
         action = ddpg.select_action(state, epsilon)
-        reward = step_reward(I_t, action, S_t, S_next, cfg.lam)
+        reward = step_reward(I_t, action, S_t, S_next, cfg.lam, eta=eta, psi=psi)
         next_state = torch.cat([normalize_state_features(S_next), action, phi_next], dim=1)
         for _ in range(cfg.ell):
             ddpg.update_critic(state, action, reward, next_state)
@@ -125,20 +131,27 @@ def main():
     ap.add_argument("--clf_steps", type=int, default=None)
     ap.add_argument("--N", type=int, default=None)
     ap.add_argument("--M", type=int, default=None)
+    ap.add_argument("--eta", type=float, default=0.0,
+                    help="quadratic trade-cost penalty in the TRAINING reward (0 = paper Eq. 4)")
+    ap.add_argument("--psi", type=float, default=0.0,
+                    help="quadratic holding-cost penalty in the TRAINING reward (0 = paper Eq. 4)")
     args = ap.parse_args()
 
     cfg = load_config(f"configs/scenario{args.scenario}_prob.yaml")
     kappa, sigma, ou_kw = ou_args_from_cfg(cfg)
     seeds = [int(s) for s in args.seeds.split(",")]
     num_classes = len(cfg.regimes)
-    assert cfg.state_dim == 2 + num_classes, \
-        f"state_dim {cfg.state_dim} != 2 + {num_classes}; set enc_dim={num_classes}"
+    # G_t = (S_t, I_t, Phi) with Phi the theta posterior -> 2 + num_classes.
+    # Derived here rather than read from cfg.state_dim, which config.py computes
+    # as 2 + enc_dim for the hid encoding and does not apply to prob.
+    state_dim = 2 + num_classes
     clf_steps = args.clf_steps or cfg.clf_pretrain_steps
     N = args.N or cfg.N
     M = args.M or cfg.M
 
     print(f"=== scenario {args.scenario} prob-DDPG sweep ===", flush=True)
-    print(f"seeds={seeds}  clf_steps={clf_steps}  N={N}  M={M}  state_dim={cfg.state_dim}", flush=True)
+    print(f"seeds={seeds}  clf_steps={clf_steps}  N={N}  M={M}  state_dim={state_dim}  "
+          f"eta={args.eta}  psi={args.psi}", flush=True)
     p_mean, p_std = PAPER[args.scenario]
     print(f"paper: {p_mean} +/- {p_std}", flush=True)
 
@@ -149,7 +162,8 @@ def main():
     means = []
     for seed in seeds:
         ts = time.time()
-        ddpg = train_ddpg(cfg, kappa, sigma, ou_kw, clf, seed, N)
+        ddpg = train_ddpg(cfg, kappa, sigma, ou_kw, clf, seed, N, state_dim,
+                          eta=args.eta, psi=args.psi)
         rewards, mean_absI = evaluate(cfg, kappa, sigma, ou_kw, clf, ddpg, M)
         means.append(rewards.mean())
         np.save(f"artifacts/sweep_prob_s{args.scenario}_seed{seed}.npy", rewards)
