@@ -1,0 +1,7 @@
+=== psi sweep | variant=reg | eta held at default ===
+psi=0.0  reg  mean=25.59  mean|I|=5.641
+psi=0.0002  reg  mean=18.46  mean|I|=2.389
+psi=0.0005  reg  mean=13.46  mean|I|=1.505
+psi=0.001  reg  mean=10.58  mean|I|=1.126
+psi=0.002  reg  mean=7.61  mean|I|=0.762
+=== psi sweep DONE | reg ===

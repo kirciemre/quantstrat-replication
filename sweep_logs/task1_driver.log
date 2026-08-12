@@ -1,0 +1,196 @@
+[driver] waiting for S1 psi-sweep to finish...
+[driver] S1 sweep done -> LEAN phase (S2,S3 x {0,0.0005} x seeds 1,2)
+  [reg] sc2 psi=0.0 seed=1 -> mean=27.69 |I|=4.252
+  [hid] sc2 psi=0.0 seed=1 -> mean=23.38 |I|=3.726
+  [prob] sc2 psi=0.0 seed=1 -> mean=29.27 |I|=4.344
+  [reg] sc2 psi=0.0 seed=2 -> mean=29.46 |I|=4.678
+  [hid] sc2 psi=0.0 seed=2 -> mean=23.96 |I|=4.386
+  [prob] sc2 psi=0.0 seed=2 -> mean=29.06 |I|=4.843
+  [reg] sc2 psi=0.0005 seed=1 -> mean=13.14 |I|=1.422
+  [hid] sc2 psi=0.0005 seed=1 -> mean=16.14 |I|=1.590
+  [prob] sc2 psi=0.0005 seed=1 -> mean=20.52 |I|=2.129
+  [reg] sc2 psi=0.0005 seed=2 -> mean=9.87 |I|=0.821
+  [hid] sc2 psi=0.0005 seed=2 -> mean=12.89 |I|=1.497
+  [prob] sc2 psi=0.0005 seed=2 -> mean=18.55 |I|=2.099
+  [reg] sc3 psi=0.0 seed=1 -> mean=36.76 |I|=4.398
+  [hid] sc3 psi=0.0 seed=1 -> mean=36.78 |I|=4.508
+  [reg] sc3 psi=0.0 seed=2 -> mean=38.40 |I|=4.044
+  [reg] sc3 psi=0.0005 seed=1 -> mean=24.77 |I|=1.503
+  [hid] sc3 psi=0.0 seed=2 -> mean=32.10 |I|=3.593
+  [prob] sc3 psi=0.0 seed=1 -> mean=37.62 |I|=4.608
+  [reg] sc3 psi=0.0005 seed=2 -> mean=28.10 |I|=1.631
+WORKER DONE reg
+  [hid] sc3 psi=0.0005 seed=1 -> mean=28.74 |I|=1.943
+  [hid] sc3 psi=0.0005 seed=2 -> mean=25.91 |I|=1.617
+WORKER DONE hid
+  [prob] sc3 psi=0.0 seed=2 -> mean=39.92 |I|=5.128
+  [prob] sc3 psi=0.0005 seed=1 -> mean=29.99 |I|=1.630
+  [prob] sc3 psi=0.0005 seed=2 -> mean=27.65 |I|=1.160
+WORKER DONE prob
+[driver] ===== LEAN DONE =====
+scenario,variant,psi,seed,mean,mean_I
+2,hid,0.0,1,23.38,3.726
+2,hid,0.0,2,23.96,4.386
+2,hid,0.0005,1,16.14,1.590
+2,hid,0.0005,2,12.89,1.497
+3,hid,0.0,1,36.78,4.508
+3,hid,0.0,2,32.10,3.593
+3,hid,0.0005,1,28.74,1.943
+3,hid,0.0005,2,25.91,1.617
+2,prob,0.0,1,29.27,4.344
+2,prob,0.0,2,29.06,4.843
+2,prob,0.0005,1,20.52,2.129
+2,prob,0.0005,2,18.55,2.099
+3,prob,0.0,1,37.62,4.608
+3,prob,0.0,2,39.92,5.128
+3,prob,0.0005,1,29.99,1.630
+3,prob,0.0005,2,27.65,1.160
+2,reg,0.0,1,27.69,4.252
+2,reg,0.0,2,29.46,4.678
+2,reg,0.0005,1,13.14,1.422
+2,reg,0.0005,2,9.87,0.821
+3,reg,0.0,1,36.76,4.398
+3,reg,0.0,2,38.40,4.044
+3,reg,0.0005,1,24.77,1.503
+3,reg,0.0005,2,28.10,1.631
+[driver] FULL phase (scen 1,2,3 x 5 psi x seeds 1,2,3) -- overnight
+  [hid] sc1 psi=0.0 seed=1 -> mean=16.90 |I|=3.120
+  [reg] sc1 psi=0.0 seed=1 -> mean=24.71 |I|=4.324
+  [prob] sc1 psi=0.0 seed=1 -> mean=23.39 |I|=5.079
+  [hid] sc1 psi=0.0 seed=2 -> mean=22.49 |I|=3.770
+  [reg] sc1 psi=0.0 seed=2 -> mean=22.45 |I|=3.906
+  [prob] sc1 psi=0.0 seed=2 -> mean=26.62 |I|=5.633
+  [hid] sc1 psi=0.0 seed=3 -> mean=22.27 |I|=3.477
+  [reg] sc1 psi=0.0 seed=3 -> mean=22.47 |I|=4.056
+  [prob] sc1 psi=0.0 seed=3 -> mean=25.87 |I|=6.569
+  [hid] sc1 psi=0.0002 seed=1 -> mean=13.41 |I|=1.676
+  [reg] sc1 psi=0.0002 seed=1 -> mean=18.90 |I|=2.556
+  [hid] sc1 psi=0.0002 seed=2 -> mean=16.42 |I|=2.289
+  [prob] sc1 psi=0.0002 seed=1 -> mean=19.64 |I|=2.785
+  [reg] sc1 psi=0.0002 seed=2 -> mean=18.42 |I|=2.558
+  [hid] sc1 psi=0.0002 seed=3 -> mean=17.10 |I|=2.316
+  [reg] sc1 psi=0.0002 seed=3 -> mean=20.35 |I|=3.107
+  [prob] sc1 psi=0.0002 seed=2 -> mean=21.01 |I|=4.033
+  [hid] sc1 psi=0.0005 seed=1 -> mean=11.67 |I|=1.492
+  [reg] sc1 psi=0.0005 seed=1 -> mean=12.48 |I|=1.298
+  [prob] sc1 psi=0.0002 seed=3 -> mean=20.37 |I|=4.099
+  [hid] sc1 psi=0.0005 seed=2 -> mean=12.50 |I|=1.590
+  [reg] sc1 psi=0.0005 seed=2 -> mean=12.77 |I|=1.424
+  [hid] sc1 psi=0.0005 seed=3 -> mean=11.52 |I|=1.316
+  [prob] sc1 psi=0.0005 seed=1 -> mean=12.99 |I|=1.491
+  [reg] sc1 psi=0.0005 seed=3 -> mean=13.46 |I|=1.476
+  [hid] sc1 psi=0.001 seed=1 -> mean=9.17 |I|=1.061
+  [prob] sc1 psi=0.0005 seed=2 -> mean=12.42 |I|=2.455
+  [reg] sc1 psi=0.001 seed=1 -> mean=11.05 |I|=1.156
+  [hid] sc1 psi=0.001 seed=2 -> mean=8.76 |I|=0.875
+  [reg] sc1 psi=0.001 seed=2 -> mean=4.82 |I|=0.641
+  [prob] sc1 psi=0.0005 seed=3 -> mean=15.00 |I|=2.112
+  [hid] sc1 psi=0.001 seed=3 -> mean=8.30 |I|=0.865
+  [reg] sc1 psi=0.001 seed=3 -> mean=11.66 |I|=1.339
+  [prob] sc1 psi=0.001 seed=1 -> mean=7.92 |I|=0.713
+  [hid] sc1 psi=0.002 seed=1 -> mean=4.69 |I|=0.471
+  [reg] sc1 psi=0.002 seed=1 -> mean=7.47 |I|=0.750
+  [hid] sc1 psi=0.002 seed=2 -> mean=5.71 |I|=0.590
+  [prob] sc1 psi=0.001 seed=2 -> mean=7.17 |I|=0.721
+  [hid] sc1 psi=0.002 seed=3 -> mean=6.09 |I|=0.665
+  [reg] sc1 psi=0.002 seed=2 -> mean=6.90 |I|=0.656
+  [prob] sc1 psi=0.001 seed=3 -> mean=12.60 |I|=1.579
+  [reg] sc1 psi=0.002 seed=3 -> mean=7.44 |I|=0.754
+  [hid] sc2 psi=0.0 seed=1 -> mean=23.21 |I|=3.658
+  [reg] sc2 psi=0.0 seed=1 -> mean=28.29 |I|=4.086
+  [prob] sc1 psi=0.002 seed=1 -> mean=6.51 |I|=0.612
+  [hid] sc2 psi=0.0 seed=2 -> mean=23.08 |I|=4.346
+  [reg] sc2 psi=0.0 seed=2 -> mean=27.04 |I|=4.408
+  [prob] sc1 psi=0.002 seed=2 -> mean=7.50 |I|=0.794
+  [hid] sc2 psi=0.0 seed=3 -> mean=27.66 |I|=3.695
+  [reg] sc2 psi=0.0 seed=3 -> mean=26.18 |I|=3.694
+  [hid] sc2 psi=0.0002 seed=1 -> mean=20.23 |I|=2.466
+  [prob] sc1 psi=0.002 seed=3 -> mean=8.85 |I|=0.971
+  [reg] sc2 psi=0.0002 seed=1 -> mean=23.26 |I|=3.013
+  [hid] sc2 psi=0.0002 seed=2 -> mean=13.78 |I|=1.515
+  [reg] sc2 psi=0.0002 seed=2 -> mean=23.19 |I|=2.720
+  [prob] sc2 psi=0.0 seed=1 -> mean=29.32 |I|=4.400
+  [hid] sc2 psi=0.0002 seed=3 -> mean=22.05 |I|=2.347
+  [reg] sc2 psi=0.0002 seed=3 -> mean=22.88 |I|=2.886
+  [prob] sc2 psi=0.0 seed=2 -> mean=26.96 |I|=4.180
+  [hid] sc2 psi=0.0005 seed=1 -> mean=17.15 |I|=1.738
+  [reg] sc2 psi=0.0005 seed=1 -> mean=15.10 |I|=1.450
+  [prob] sc2 psi=0.0 seed=3 -> mean=28.14 |I|=4.430
+  [hid] sc2 psi=0.0005 seed=2 -> mean=13.40 |I|=1.431
+  [reg] sc2 psi=0.0005 seed=2 -> mean=17.04 |I|=1.839
+  [hid] sc2 psi=0.0005 seed=3 -> mean=17.95 |I|=1.655
+  [prob] sc2 psi=0.0002 seed=1 -> mean=26.21 |I|=3.358
+  [reg] sc2 psi=0.0005 seed=3 -> mean=15.82 |I|=1.516
+  [hid] sc2 psi=0.001 seed=1 -> mean=13.11 |I|=1.220
+  [prob] sc2 psi=0.0002 seed=2 -> mean=26.62 |I|=3.533
+  [reg] sc2 psi=0.001 seed=1 -> mean=10.38 |I|=0.899
+  [hid] sc2 psi=0.001 seed=2 -> mean=11.39 |I|=1.130
+  [reg] sc2 psi=0.001 seed=2 -> mean=10.38 |I|=0.917
+  [prob] sc2 psi=0.0002 seed=3 -> mean=21.30 |I|=2.776
+  [reg] sc2 psi=0.001 seed=3 -> mean=12.56 |I|=1.115
+  [hid] sc2 psi=0.001 seed=3 -> mean=13.21 |I|=1.135
+  [reg] sc2 psi=0.002 seed=1 -> mean=7.71 |I|=0.657
+  [prob] sc2 psi=0.0005 seed=1 -> mean=19.64 |I|=1.975
+  [hid] sc2 psi=0.002 seed=1 -> mean=9.74 |I|=0.865
+  [reg] sc2 psi=0.002 seed=2 -> mean=8.78 |I|=0.719
+  [hid] sc2 psi=0.002 seed=2 -> mean=8.05 |I|=0.708
+  [prob] sc2 psi=0.0005 seed=2 -> mean=19.28 |I|=2.018
+  [reg] sc2 psi=0.002 seed=3 -> mean=9.21 |I|=0.797
+  [hid] sc2 psi=0.002 seed=3 -> mean=7.97 |I|=0.714
+  [prob] sc2 psi=0.0005 seed=3 -> mean=9.18 |I|=0.954
+  [reg] sc3 psi=0.0 seed=1 -> mean=30.28 |I|=2.657
+  [hid] sc3 psi=0.0 seed=1 -> mean=32.96 |I|=3.435
+  [reg] sc3 psi=0.0 seed=2 -> mean=37.04 |I|=3.681
+  [prob] sc2 psi=0.001 seed=1 -> mean=15.42 |I|=1.363
+  [reg] sc3 psi=0.0 seed=3 -> mean=35.95 |I|=3.554
+  [hid] sc3 psi=0.0 seed=2 -> mean=29.56 |I|=2.664
+  [reg] sc3 psi=0.0002 seed=1 -> mean=30.25 |I|=2.659
+  [prob] sc2 psi=0.001 seed=2 -> mean=11.75 |I|=1.102
+  [hid] sc3 psi=0.0 seed=3 -> mean=38.51 |I|=3.832
+  [reg] sc3 psi=0.0002 seed=2 -> mean=34.30 |I|=2.647
+  [prob] sc2 psi=0.001 seed=3 -> mean=13.27 |I|=1.288
+  [hid] sc3 psi=0.0002 seed=1 -> mean=31.79 |I|=3.014
+  [reg] sc3 psi=0.0002 seed=3 -> mean=31.33 |I|=2.031
+  [prob] sc2 psi=0.002 seed=1 -> mean=11.40 |I|=0.925
+  [reg] sc3 psi=0.0005 seed=1 -> mean=27.90 |I|=1.632
+  [hid] sc3 psi=0.0002 seed=2 -> mean=28.79 |I|=1.998
+  [prob] sc2 psi=0.002 seed=2 -> mean=9.94 |I|=0.795
+  [reg] sc3 psi=0.0005 seed=2 -> mean=28.37 |I|=1.762
+  [hid] sc3 psi=0.0002 seed=3 -> mean=35.25 |I|=2.546
+  [reg] sc3 psi=0.0005 seed=3 -> mean=25.63 |I|=1.340
+  [prob] sc2 psi=0.002 seed=3 -> mean=8.38 |I|=0.648
+  [reg] sc3 psi=0.001 seed=1 -> mean=17.52 |I|=0.890
+  [hid] sc3 psi=0.0005 seed=1 -> mean=28.95 |I|=2.060
+  [reg] sc3 psi=0.001 seed=2 -> mean=23.65 |I|=1.375
+  [prob] sc3 psi=0.0 seed=1 -> mean=41.17 |I|=4.047
+  [hid] sc3 psi=0.0005 seed=2 -> mean=24.04 |I|=1.404
+  [reg] sc3 psi=0.001 seed=3 -> mean=15.38 |I|=0.728
+  [reg] sc3 psi=0.002 seed=1 -> mean=15.62 |I|=0.747
+  [hid] sc3 psi=0.0005 seed=3 -> mean=28.24 |I|=1.707
+  [reg] sc3 psi=0.002 seed=2 -> mean=17.10 |I|=0.869
+  [prob] sc3 psi=0.0 seed=2 -> mean=39.06 |I|=5.848
+  [hid] sc3 psi=0.001 seed=1 -> mean=24.91 |I|=1.452
+  [reg] sc3 psi=0.002 seed=3 -> mean=14.56 |I|=0.670
+WORKER DONE reg
+  [hid] sc3 psi=0.001 seed=2 -> mean=20.81 |I|=1.051
+  [prob] sc3 psi=0.0 seed=3 -> mean=43.84 |I|=4.956
+  [hid] sc3 psi=0.001 seed=3 -> mean=24.00 |I|=1.251
+  [prob] sc3 psi=0.0002 seed=1 -> mean=39.10 |I|=3.875
+  [hid] sc3 psi=0.002 seed=1 -> mean=16.38 |I|=0.770
+  [hid] sc3 psi=0.002 seed=2 -> mean=16.22 |I|=0.730
+  [prob] sc3 psi=0.0002 seed=2 -> mean=36.12 |I|=3.786
+  [hid] sc3 psi=0.002 seed=3 -> mean=17.47 |I|=0.839
+WORKER DONE hid
+  [prob] sc3 psi=0.0002 seed=3 -> mean=39.21 |I|=3.345
+  [prob] sc3 psi=0.0005 seed=1 -> mean=32.15 |I|=2.205
+  [prob] sc3 psi=0.0005 seed=2 -> mean=31.20 |I|=1.749
+  [prob] sc3 psi=0.0005 seed=3 -> mean=34.42 |I|=1.963
+  [prob] sc3 psi=0.001 seed=1 -> mean=28.86 |I|=1.234
+  [prob] sc3 psi=0.001 seed=2 -> mean=26.57 |I|=1.266
+  [prob] sc3 psi=0.001 seed=3 -> mean=28.24 |I|=1.714
+  [prob] sc3 psi=0.002 seed=1 -> mean=21.78 |I|=1.058
+  [prob] sc3 psi=0.002 seed=2 -> mean=21.61 |I|=0.982
+  [prob] sc3 psi=0.002 seed=3 -> mean=25.11 |I|=1.127
+WORKER DONE prob
+[driver] ===== FULL DONE =====
+[driver] ALL DONE - tree restored

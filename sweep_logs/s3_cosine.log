@@ -1,0 +1,9 @@
+=== scenario 3 reg-DDPG sweep [baseline_cosine] ===
+seeds=[0, 1, 2]  pretrain_steps=10000  N=10000  M=500  full_norm=False  gamma=0.99
+paper: -0.07 +/- 0.11
+[regressor pretrained in 1258s]
+  seed  0 | reward   23.14 +/-  6.37 | mean|I|  1.44 | 1858s
+  seed  1 | reward   71.73 +/- 15.10 | mean|I|  4.70 | 1746s
+  seed  2 | reward   14.47 +/-  4.55 | mean|I|  0.97 | 1638s
+--- scenario 3: mean-of-means 36.45 +/- 25.20 across 3 seeds (paper -0.07 +/- 0.11) ---
+[total 6500s]

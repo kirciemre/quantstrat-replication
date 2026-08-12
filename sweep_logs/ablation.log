@@ -1,0 +1,16 @@
+=== ABLATION penalty-OFF (eta=psi=0), scenario 1 ===
+configs/scenario1_reg.yaml:eta: 0.0
+configs/scenario1_reg.yaml:psi: 0.0
+--- reg (penalty off) ---
+saved artifacts/scenario1_ppo_reg.pt
+mean 35.12 +/- 3.50
+mean |I| = 4.438, steps at |I|>=8: 12/1949
+--- hid (penalty off) ---
+saved artifacts/scenario1_ppo_hid.pt
+mean 17.71 +/- 1.97
+mean |I| = 2.436, steps at |I|>=8: 0/1989
+--- prob theta-only (penalty off) ---
+saved artifacts/scenario1_ppo_prob_thetaonly.pt
+mean 39.27 +/- 4.62
+mean |I| = 5.275, steps at |I|>=8: 326/1989
+=== ABLATION DONE — configs restored ===

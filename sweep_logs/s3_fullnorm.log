@@ -1,0 +1,9 @@
+=== scenario 3 reg-DDPG sweep [fullnorm] ===
+seeds=[0, 1, 2]  pretrain_steps=10000  N=10000  M=500  full_norm=True
+paper: -0.07 +/- 0.11
+[regressor pretrained in 1241s]
+  seed  0 | reward   -0.50 +/-  1.61 | mean|I| 10.00 | 1650s
+  seed  1 | reward   -0.50 +/-  1.61 | mean|I| 10.00 | 1569s
+  seed  2 | reward   -0.50 +/-  1.61 | mean|I| 10.00 | 1754s
+--- scenario 3: mean-of-means -0.50 +/- 0.00 across 3 seeds (paper -0.07 +/- 0.11) ---
+[total 6214s]
