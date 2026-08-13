@@ -1,0 +1,11 @@
+=== scenario 2 prob-DDPG sweep ===
+seeds=[0, 1, 2, 3, 4]  clf_steps=10000  N=10000  M=500  state_dim=5
+paper: 15.59 +/- 3.83
+[classifier pretrained in 264s | train acc 0.832]
+  seed  0 | reward    2.58 +/-  1.72 | mean|I|  1.03 | 546s
+  seed  1 | reward   79.91 +/-  9.16 | mean|I|  5.69 | 595s
+  seed  2 | reward    6.20 +/-  2.90 | mean|I|  1.16 | 595s
+  seed  3 | reward   58.74 +/-  7.29 | mean|I|  4.41 | 585s
+  seed  4 | reward   25.94 +/-  6.41 | mean|I|  2.54 | 586s
+--- scenario 2 prob: mean-of-means 34.67 +/- 30.14 across 5 seeds (paper 15.59 +/- 3.83) ---
+[total 3172s]

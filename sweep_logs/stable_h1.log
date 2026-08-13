@@ -1,0 +1,12 @@
+=== H1 stabilized reg-DDPG — scenario 2 ===
+actor_lr x0.1  l=1 (baseline 5)  grad_clip=1.0
+seeds=[0, 1, 2, 3, 4]  N=10000  M=500
+baseline 4.26 +/- 4.11  |  paper 2.95 +/- 0.30
+[regressor pretrained]
+  seed  0 | final  69.26 +/- 12.40 | mean|I| 8.62 | iter2000   4.33 (overshoot check)
+  seed  1 | final  87.27 +/- 15.46 | mean|I| 9.50 | iter2000   2.58 (overshoot check)
+  seed  2 | final  85.08 +/- 14.65 | mean|I| 9.30 | iter2000   1.26 (overshoot check)
+  seed  3 | final  66.52 +/- 10.80 | mean|I| 8.34 | iter2000   7.44 (overshoot check)
+  seed  4 | final  71.42 +/- 11.26 | mean|I| 7.74 | iter2000  17.76 (overshoot check)
+--- H1: mean-of-means 75.91 +/- 8.55 across 5 seeds (baseline 4.26 +/- 4.11, paper 2.95 +/- 0.30) ---
+    variance collapsed? baseline std 4.11 -> H1 std 8.55

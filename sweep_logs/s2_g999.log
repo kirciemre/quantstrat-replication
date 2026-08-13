@@ -1,0 +1,9 @@
+=== scenario 2 reg-DDPG sweep [baseline_g0999] ===
+seeds=[0, 1, 2]  pretrain_steps=10000  N=10000  M=500  full_norm=False  gamma=0.999
+paper: 2.95 +/- 0.3
+[regressor pretrained in 1287s]
+  seed  0 | reward    3.74 +/-  1.23 | mean|I|  0.94 | 1555s
+  seed  1 | reward    5.78 +/-  0.96 | mean|I|  0.71 | 1512s
+  seed  2 | reward    2.57 +/-  1.03 | mean|I|  0.77 | 1534s
+--- scenario 2: mean-of-means 4.03 +/- 1.33 across 3 seeds (paper 2.95 +/- 0.3) ---
+[total 5888s]

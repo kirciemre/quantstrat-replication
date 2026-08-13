@@ -1,0 +1,38 @@
+pretraining regressor (shared across seeds)...
+seed 0: training with instrumentation...
+  iter     0 | eval R  -0.02 | mean|I| 0.76 | actorL +0.145 | criticL 0.112
+  iter  1000 | eval R   5.46 | mean|I| 0.68 | actorL +0.342 | criticL 0.038
+  iter  2000 | eval R  14.88 | mean|I| 1.85 | actorL +0.373 | criticL 0.035
+  iter  3000 | eval R  11.82 | mean|I| 1.48 | actorL +0.435 | criticL 0.015
+  iter  4000 | eval R  11.76 | mean|I| 1.40 | actorL +0.433 | criticL 0.009
+  iter  5000 | eval R  11.18 | mean|I| 1.34 | actorL +0.438 | criticL 0.005
+  iter  6000 | eval R  10.53 | mean|I| 1.34 | actorL +0.429 | criticL 0.004
+  iter  7000 | eval R   8.81 | mean|I| 1.22 | actorL +0.423 | criticL 0.004
+  iter  8000 | eval R   7.59 | mean|I| 1.14 | actorL +0.419 | criticL 0.003
+  iter  9000 | eval R   5.09 | mean|I| 0.96 | actorL +0.430 | criticL 0.002
+  iter  9999 | eval R   4.29 | mean|I| 0.94 | actorL +0.431 | criticL 0.002
+seed 1: training with instrumentation...
+  iter     0 | eval R  -0.13 | mean|I| 1.42 | actorL +0.129 | criticL 0.096
+  iter  1000 | eval R   7.92 | mean|I| 2.78 | actorL +0.211 | criticL 0.148
+  iter  2000 | eval R  13.53 | mean|I| 2.73 | actorL +0.222 | criticL 0.098
+  iter  3000 | eval R  13.38 | mean|I| 1.82 | actorL +0.269 | criticL 0.072
+  iter  4000 | eval R   9.63 | mean|I| 1.89 | actorL +0.302 | criticL 0.039
+  iter  5000 | eval R  15.34 | mean|I| 1.51 | actorL +0.347 | criticL 0.024
+  iter  6000 | eval R  12.17 | mean|I| 1.19 | actorL +0.312 | criticL 0.014
+  iter  7000 | eval R  11.92 | mean|I| 1.23 | actorL +0.291 | criticL 0.015
+  iter  8000 | eval R  12.54 | mean|I| 1.30 | actorL +0.297 | criticL 0.009
+  iter  9000 | eval R  13.16 | mean|I| 1.33 | actorL +0.299 | criticL 0.014
+  iter  9999 | eval R  12.29 | mean|I| 1.24 | actorL +0.314 | criticL 0.013
+seed 2: training with instrumentation...
+  iter     0 | eval R  -0.00 | mean|I| 0.23 | actorL +0.039 | criticL 0.098
+  iter  1000 | eval R   5.22 | mean|I| 0.68 | actorL +0.269 | criticL 0.040
+  iter  2000 | eval R  16.00 | mean|I| 1.90 | actorL +0.308 | criticL 0.030
+  iter  3000 | eval R   7.97 | mean|I| 0.85 | actorL +0.355 | criticL 0.011
+  iter  4000 | eval R   6.44 | mean|I| 1.14 | actorL +0.371 | criticL 0.009
+  iter  5000 | eval R   4.79 | mean|I| 0.95 | actorL +0.370 | criticL 0.005
+  iter  6000 | eval R   4.71 | mean|I| 0.89 | actorL +0.383 | criticL 0.003
+  iter  7000 | eval R   3.74 | mean|I| 0.82 | actorL +0.375 | criticL 0.003
+  iter  8000 | eval R   3.46 | mean|I| 0.79 | actorL +0.379 | criticL 0.002
+  iter  9000 | eval R   3.16 | mean|I| 0.73 | actorL +0.403 | criticL 0.001
+  iter  9999 | eval R   2.55 | mean|I| 0.70 | actorL +0.401 | criticL 0.002
+saved figures/convergence_s2_reg.png

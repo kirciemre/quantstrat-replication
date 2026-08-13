@@ -105,7 +105,7 @@ def main():
         plt.savefig(path, dpi=130); plt.close()
         print(f"saved {path}")
         np.save(f"artifacts/rewards_scenario{args.scenario}_{args.model}_prob.npy", rewards)
-        plot_reward_histogram(rewards, cfg.scenario, bins=10)
+        plot_reward_histogram(rewards, cfg.scenario, variant="prob", model=args.model, bins=10)
 
 
 if __name__ == "__main__":

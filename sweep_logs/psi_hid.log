@@ -1,0 +1,7 @@
+=== psi sweep | variant=hid | eta held at default ===
+psi=0.0  hid  mean=12.52  mean|I|=1.964
+psi=0.0002  hid  mean=13.06  mean|I|=2.208
+psi=0.0005  hid  mean=11.88  mean|I|=1.400
+psi=0.001  hid  mean=10.06  mean|I|=1.042
+psi=0.002  hid  mean=5.41  mean|I|=0.570
+=== psi sweep DONE | hid ===

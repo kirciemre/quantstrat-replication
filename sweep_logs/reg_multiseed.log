@@ -1,0 +1,25 @@
+=== reg S2 multi-seed (penalty ON, reuse regressor, vary RL seed) ===
+--- RL seed 1 ---
+saved artifacts/scenario2_ppo_reg.pt
+mean 12.15 +/- 1.48
+mean |I| = 1.172, steps at |I|>=8: 0/1949
+--- RL seed 2 ---
+saved artifacts/scenario2_ppo_reg.pt
+mean 15.64 +/- 2.16
+mean |I| = 2.068, steps at |I|>=8: 96/1949
+--- RL seed 3 ---
+saved artifacts/scenario2_ppo_reg.pt
+mean 16.79 +/- 2.11
+mean |I| = 1.545, steps at |I|>=8: 0/1949
+--- RL seed 4 ---
+saved artifacts/scenario2_ppo_reg.pt
+mean 14.54 +/- 1.82
+mean |I| = 1.248, steps at |I|>=8: 0/1949
+=== reg S2 per-seed CSV ===
+scenario,variant,model,seed,mean,std,mean_I,bound_hits
+2,reg,ppo,999,12.1450,1.4756,1.1723,0
+2,reg,ppo,999,15.6435,2.1550,2.0675,96
+2,reg,ppo,999,16.7937,2.1053,1.5452,0
+2,reg,ppo,999,14.5440,1.8156,1.2475,0
+reg S2 across 4 RL seeds: mean-of-means 14.78 +/- 1.72  seeds=[12.14, 15.64, 16.79, 14.54]
+=== reg multiseed DONE ===

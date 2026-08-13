@@ -1,0 +1,10 @@
+=== scenario 2 hid-DDPG sweep [baseline] ===
+seeds=[0, 1, 2, 3, 4]  N=10000  M=500  norm_inventory=False
+paper: 8.08 +/- 1.54
+  seed  0 | reward    1.51 +/-  0.50 | mean|I|  3.23 | 164s
+  seed  1 | reward    8.05 +/-  3.17 | mean|I|  1.87 | 163s
+  seed  2 | reward   49.01 +/-  7.72 | mean|I|  5.84 | 177s
+  seed  3 | reward    8.08 +/-  1.96 | mean|I|  1.52 | 177s
+  seed  4 | reward   38.34 +/-  5.96 | mean|I|  5.08 | 177s
+--- scenario 2 hid [baseline]: mean-of-means 21.00 +/- 18.97 across 5 seeds (paper 8.08 +/- 1.54) ---
+[total 858s]

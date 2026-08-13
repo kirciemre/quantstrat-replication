@@ -1,0 +1,7 @@
+=== psi sweep | variant=prob | eta held at default ===
+psi=0.0  prob  mean=23.46  mean|I|=4.346
+psi=0.0002  prob  mean=16.29  mean|I|=2.367
+psi=0.0005  prob  mean=11.16  mean|I|=1.300
+psi=0.001  prob  mean=9.70  mean|I|=1.006
+psi=0.002  prob  mean=6.75  mean|I|=0.655
+=== psi sweep DONE | prob ===

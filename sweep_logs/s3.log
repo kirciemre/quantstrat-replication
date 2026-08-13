@@ -1,0 +1,11 @@
+=== scenario 3 reg-DDPG sweep ===
+seeds=[0, 1, 2, 3, 4]  pretrain_steps=10000  N=10000  M=500
+paper: -0.07 +/- 0.11
+[regressor pretrained in 1331s]
+  seed  0 | reward   13.79 +/-  4.27 | mean|I|  0.95 | 1881s
+  seed  1 | reward   18.56 +/-  4.59 | mean|I|  1.03 | 1836s
+  seed  2 | reward   10.99 +/-  3.41 | mean|I|  0.68 | 1824s
+  seed  3 | reward    6.40 +/-  2.47 | mean|I|  0.48 | 1817s
+  seed  4 | reward    6.30 +/-  2.08 | mean|I|  0.35 | 1734s
+--- scenario 3: mean-of-means 11.21 +/- 4.65 across 5 seeds (paper -0.07 +/- 0.11) ---
+[total 10423s]

@@ -1,51 +1,11 @@
-# quantstrat-replication
+# Deep Reinforcement Learning for Optimal Trading with Partial Information
 
-This is our replication project for Deep reinforcement learning for optimal trading with partial information.
+This repository is a PyTorch-based replication codebase for the optimal trading framework proposed in the paper **"Deep reinforcement learning for optimal trading with partial information" (2025)**. 
 
-You can start full test of paper with this command.
-```bash
-python main.py --full
-```
-
-It will start tarining first and then run synthetic repication part.
-
-It may take a bit long depends on your GPU and it will designed to use accelerator mps for Apple Silicon or CUDA for Nvidia GPU.
-
-You can validate code, tables and models with this code;
-```bash
-python main.py --steps 10 --pretrain_steps 10 --test_episodes 5 --test_steps 10
-```
-
-It should be faster than full testing code.
-
-## for replicv2 generated with Claude and you can test it;
-```bash
-cd "replic v2"
-```
-
-Quick test
-```bash
-python main.py
-```
-
-Mid-size test
-```bash
-python main.py --ddpg_steps 500 --pretrain_steps 500 --test_episodes 50 --test_steps 200
-```
-
-Full paper (takes too much time around 6 hr or more)
-```bash
-python main.py --full
-```
-
-# Deep Reinforcement Learning for Optimal Trading with Partial Information - Replication Codebase
-
-This repository is a PyTorch-based replication of the DDPG-GRU trading framework proposed in the paper **"Deep reinforcement learning for optimal trading with partial information" (2025)** by Andrea Macrì, Sebastian Jaimungal, and Fabrizio Lillo. 
-
-The codebase implements three Deep Deterministic Policy Gradient (DDPG) variants integrated with Gated Recurrent Unit (GRU) networks:
-1. **`hid-DDPG`**: A one-step approach directly encoding temporal hidden states from the GRU into the RL trader.
-2. **`prob-DDPG`**: A two-step method using posterior regime probability estimates of the mean-reversion levels.
-3. **`reg-DDPG`**: A two-step method relying on forecasts of the next signal value.
+The codebase implements three Gated Recurrent Unit (GRU) integrated reinforcement learning variants (supporting **PPO, DDPG, and TD3**):
+1. **`hid-DDPG / hid-PPO`**: A one-step approach directly encoding temporal hidden states from the GRU into the RL trader.
+2. **`prob-DDPG / prob-PPO`**: A two-step method using posterior regime probability estimates of the mean-reversion levels.
+3. **`reg-DDPG / reg-PPO`**: A two-step method relying on forecasts of the next signal value.
 
 ---
 
@@ -53,53 +13,100 @@ The codebase implements three Deep Deterministic Policy Gradient (DDPG) variants
 
 To run this project, make sure Python 3.8+ and the following libraries are installed:
 ```bash
-pip install numpy torch scipy matplotlib
+pip install -r requirements.txt
 ```
-*Note: PyTorch automatically selects the `mps` device for hardware acceleration on Apple Silicon (M1/M2/M3 Macs) or `cuda` on Nvidia GPUs for optimal performance.*
-
----
-
-## 🚀 Usage & Testing
-
-We provide dynamic parameters via CLI arguments to make debugging and full execution simple.
-
-### 1. Fast Verification Run
-To verify that all environments, filters, tensor shapes, and evaluation modules compile and run successfully (completes in **10-15 seconds**), run:
+Or manually:
 ```bash
-python main.py --steps 10 --pretrain_steps 10 --test_episodes 5 --test_steps 10
-```
-
-### 2. Full Paper Replication (10k Iterations)
-To train all three variants matching the original paper specifications (10,000 steps, 500 test episodes, and 2,000 steps) and output Table 4 and Table 9:
-```bash
-python main.py --full
-```
-
-### 3. Custom Run
-You can customize the number of training, pre-training, and testing steps manually:
-```bash
-python main.py --steps 1000 --pretrain_steps 1000 --test_episodes 100 --test_steps 500
+pip install numpy torch scipy yaml matplotlib
 ```
 
 ---
 
 ## 📂 Codebase Structure
 
-* **`ou_env.py`**: Simulates continuous-time parameter transitions via Markov Chains discretized using the matrix exponential ($P = e^{A \Delta t}$) and contains the exact solution step of the Ornstein-Uhlenbeck process.
-* **`gru_filters.py`**: Defines PyTorch GRU modules for representation learning:
-  * `GRUEncoder` (trained online with an auxiliary next-step regression head for `hid-DDPG`)
-  * `GRUClassifier` (trained offline with cross-entropy loss for `prob-DDPG`)
-  * `GRURegressor` (trained offline with MSE loss for `reg-DDPG`)
-* **`ddpg.py`**: Implements Actor-Critic architectures, action clamping (inventories restricted to $[-10, 10]$), and soft target updates ($\tau_{\text{tgt}} = 0.001$).
-* **`train.py`**: Implements offline filter pre-training loops and Algorithm 1 replay-free batch DDPG training.
-* **`evaluate.py`**: Handles out-of-sample path evaluation starting from $S_0 = 1.0$ and $I_0 = 0.0$, running test episodes in parallel. Plots cumulative reward distributions.
-* **`main.py`**: Coordinates Scenarios 1, 2, and 3, runs Section 5's cointegrated pair-trading demonstration (SMH/INTC spread), and prints Table 4 and Table 9.
+The pipeline is organized in the modular **`src/`** directory:
+* **`src/env/`**: Contains the trading environment (`trading_env.py`) and step reward formulas (`reward.py`).
+* **`src/data/`**: Ornstein-Uhlenbeck price signal paths simulation engine (`ou_simulator.py`).
+* **`src/models/`**: Neural network architectures:
+  * `gru.py`: GRU hidden-state encoder.
+  * `gru_classifier.py`: Regime classification network.
+  * `regressor.py`: Price signal next-step prediction network.
+  * `ppo.py`: PPO actor-critic algorithm implementation.
+  * `ddpg.py` / `agents.py`: DDPG and TD3 agent structures.
+* **`src/train/`**: Training scripts for pre-training filters and main policy optimization.
+* **`src/eval/`**: Evaluation and path metrics rollouts.
+* **`configs/`**: YAML configuration files defining hyperparameter sweeps for all scenarios.
+
+---
+
+## 🚀 Execution & Usage
+
+All training and evaluation scripts are run as python modules from the root workspace directory.
+
+### 1. Training
+
+#### Scenario 1/2/3 hid-DDPG / hid-PPO / hid-TD3:
+```bash
+python3 -m src.train.train_hid --scenario [1|2|3] --model [ppo|ddpg|td3] [--seed SEED]
+```
+
+#### Scenario 1/2/3 prob-DDPG / prob-PPO / prob-TD3:
+1. **Pre-train the Regime Classifier:**
+   ```bash
+   python3 -m src.train.train_classifier --scenario [1|2|3] --theta-only [--seed SEED]
+   ```
+2. **Train the RL Agent:**
+   ```bash
+   python3 -m src.train.train_prob --scenario [1|2|3] --model [ppo|ddpg|td3] --theta-only [--seed SEED]
+   ```
+
+#### Scenario 1/2/3 reg-DDPG / reg-PPO / reg-TD3:
+1. **Pre-train the Price Regressor:**
+   ```bash
+   python3 -m src.train.train_regressor --scenario [1|2|3] [--seed SEED]
+   ```
+2. **Train the RL Agent:**
+   ```bash
+   python3 -m src.train.train_reg --scenario [1|2|3] --model [ppo|ddpg|td3] [--seed SEED]
+   ```
+
+---
+
+### 2. Evaluation
+
+To evaluate a trained agent out-of-sample and check metrics (P&L mean, std, inventory bound hits):
+
+* **hid Models:**
+  ```bash
+  python3 -m src.eval.eval_hid --scenario [1|2|3] --model [ppo|ddpg|td3] [--seed EVAL_SEED]
+  ```
+* **prob Models:**
+  ```bash
+  python3 -m src.eval.eval_prob --scenario [1|2|3] --model [ppo|ddpg|td3] --theta-only [--seed EVAL_SEED]
+  ```
+* **reg Models:**
+  ```bash
+  python3 -m src.eval.eval_reg --scenario [1|2|3] --model [ppo|ddpg|td3] [--seed EVAL_SEED]
+  ```
+
+---
+
+### 3. Master Replications (Capstone Script)
+
+To execute the master benchmark replication over multiple training seeds (default 5 seeds per cell) and print the comparative performance grid (Table 4 style):
+
+```bash
+chmod +x scripts/capstone.sh
+./scripts/capstone.sh [num_seeds]
+```
+Example running 3 seeds (quicker):
+```bash
+./scripts/capstone.sh 3
+```
 
 ---
 
 ## 📊 Outputs
 
-Upon completion, the script:
-1. Prints **Table 4 (Synthetic OU Results)** and **Table 9 (Pair Trading Results)** directly to the terminal.
-2. Saves comparative reward histograms to the `plots/` directory (e.g., `rewards_scenario_1.png`).
-3. Saves the simulated cointegrated spread data to `data/pair_trading_prices.npz`.
+- Trained models and checkpoints are saved under the `artifacts/` folder (e.g. `artifacts/scenario1_ppo_hid.pt`).
+- Reward comparison charts are saved in the `figures/` directory.
